@@ -1,0 +1,28 @@
+@import 'tailwindcss';
+
+/* Tailwind v4 uses the system preference unless a selector variant is declared.
+   The application theme toggle owns the `.dark` class, so make it authoritative. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+html {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+html,
+body {
+  min-width: 320px;
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #f8fafc;
+}
+
+html.dark body {
+  background: #0f172a;
+}

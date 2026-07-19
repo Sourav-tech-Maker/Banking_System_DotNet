@@ -1,0 +1,45 @@
+@BankingSystem_Api_HostAddress = https://localhost:7039
+
+### Register
+POST {{BankingSystem_Api_HostAddress}}/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "Test User",
+  "email": "test.user@example.com",
+  "password": "ChangeMe1!",
+  "role": "user"
+}
+
+### Verify registration OTP
+POST {{BankingSystem_Api_HostAddress}}/api/auth/verify-otp
+Content-Type: application/json
+
+{
+  "email": "test.user@example.com",
+  "otp": "123456"
+}
+
+### Resend an expired registration OTP
+POST {{BankingSystem_Api_HostAddress}}/api/auth/resend-otp
+Content-Type: application/json
+
+{
+  "email": "test.user@example.com"
+}
+
+### Login
+POST {{BankingSystem_Api_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "test.user@example.com",
+  "password": "ChangeMe1!",
+  "role": "user"
+}
+
+### Rotate access and refresh tokens (uses refreshToken cookie)
+POST {{BankingSystem_Api_HostAddress}}/api/auth/refresh-token
+
+### Logout (uses authentication cookies)
+POST {{BankingSystem_Api_HostAddress}}/api/auth/logout

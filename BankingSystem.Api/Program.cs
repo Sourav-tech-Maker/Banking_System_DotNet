@@ -1,0 +1,262 @@
+using System.Text;
+using System.Threading.RateLimiting;
+using BankingSystem.Api.Data;
+using BankingSystem.Api.Middleware;
+using BankingSystem.Api.Options;
+using BankingSystem.Api.Services;
+using BankingSystem.Api.Validation;
+using FluentValidation;
+using MailKit.Security;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using MimeKit;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Logging.ClearProviders();
+builder.Logging.AddJsonConsole(options =>
+{
+    options.IncludeScopes = true;
+    options.TimestampFormat = "yyyy-MM-dd'T'HH:mm:ss.fff'Z'";
+    options.UseUtcTimestamp = true;
+});
+
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException(
+        "ConnectionStrings:DefaultConnection must be configured.");
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(connectionString));
+
+builder.Services
+    .AddOptions<JwtOptions>()
+    .Bind(builder.Configuration.GetSection(JwtOptions.SectionName))
+    .Validate(options => !string.IsNullOrWhiteSpace(options.Issuer), "JWT issuer is required.")
+    .Validate(options => !string.IsNullOrWhiteSpace(options.Audience), "JWT audience is required.")
+    .Validate(
+        options => Encoding.UTF8.GetByteCount(options.SigningKey ?? string.Empty) >= 32,
+        "JWT signing key must contain at least 32 UTF-8 bytes.")
+    .Validate(options => options.AccessTokenMinutes > 0, "Access-token lifetime must be positive.")
+    .Validate(options => options.RefreshTokenDays > 0, "Refresh-token lifetime must be positive.")
+    .ValidateOnStart();
+
+builder.Services
+    .AddOptions<RbacOptions>()
+    .Bind(builder.Configuration.GetSection(RbacOptions.SectionName))
+    .Validate(
+        options => !string.IsNullOrWhiteSpace(options.RegistrationKey),
+        "The RBAC registration key is required.")
+    .ValidateOnStart();
+
+builder.Services
+    .AddOptions<EmailOptions>()
+    .Bind(builder.Configuration.GetSection(EmailOptions.SectionName))
+    .Validate(
+        options => !options.Enabled
+            || (!string.IsNullOrWhiteSpace(options.Host)
+                && options.Port is > 0 and <= 65_535
+                && !string.IsNullOrWhiteSpace(options.FromEmail)
+                && !string.IsNullOrWhiteSpace(options.Username)),
+        "Enabled email delivery requires a host, port, sender address, and username.")
+    .Validate(
+        options => !options.Enabled || MailboxAddress.TryParse(options.FromEmail, out _),
+        "Email:FromEmail must be a valid email address.")
+    .Validate(
+        options => !options.Enabled
+            || !options.UsesGmail
+            || options.AllowSenderAlias
+            || string.Equals(
+                options.FromEmail.Trim(),
+                options.Username.Trim(),
+                StringComparison.OrdinalIgnoreCase),
+        "For Gmail, Email:FromEmail must match Email:Username unless Email:AllowSenderAlias is true and the address is a verified Gmail 'Send mail as' alias.")
+    .Validate(
+        options => !options.Enabled
+            || !string.IsNullOrWhiteSpace(options.Password)
+            || options.OAuth2.IsConfigured,
+        "Enabled email delivery requires either a password or complete OAuth2 settings.")
+    .Validate(
+        options => !options.Enabled
+            || Enum.TryParse<SecureSocketOptions>(
+                options.SocketSecurity,
+                ignoreCase: true,
+                out _),
+        "Email socket security must be Auto, None, SslOnConnect, StartTls, or StartTlsWhenAvailable.")
+    .Validate(
+        options => options.TimeoutSeconds is >= 5 and <= 120,
+        "Email timeout must be between 5 and 120 seconds.")
+    .Validate(
+        options => options.PollingIntervalSeconds is >= 1 and <= 60,
+        "Email polling interval must be between 1 and 60 seconds.")
+    .ValidateOnStart();
+
+var jwtConfiguration = builder.Configuration
+    .GetSection(JwtOptions.SectionName)
+    .Get<JwtOptions>() ?? new JwtOptions();
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwtConfiguration.Issuer,
+            ValidateAudience = true,
+            ValidAudience = jwtConfiguration.Audience,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(jwtConfiguration.SigningKey ?? string.Empty)),
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero,
+            NameClaimType = "userid",
+            RoleClaimType = "role"
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                if (string.IsNullOrWhiteSpace(context.Token)
+                    && context.Request.Cookies.TryGetValue("token", out var cookieToken))
+                {
+                    context.Token = cookieToken;
+                }
+
+                return Task.CompletedTask;
+            },
+            OnTokenValidated = async context =>
+            {
+                var rawToken = context.Request.Cookies["token"];
+                if (string.IsNullOrWhiteSpace(rawToken))
+                {
+                    var authorization = context.Request.Headers.Authorization.ToString();
+                    if (authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                    {
+                        rawToken = authorization["Bearer ".Length..].Trim();
+                    }
+                }
+
+                if (string.IsNullOrWhiteSpace(rawToken))
+                {
+                    return;
+                }
+
+                var tokenService = context.HttpContext.RequestServices
+                    .GetRequiredService<ITokenService>();
+                var dbContext = context.HttpContext.RequestServices
+                    .GetRequiredService<AppDbContext>();
+                var tokenHash = tokenService.HashToken(rawToken);
+                var isRevoked = await dbContext.RevokedAccessTokens
+                    .AsNoTracking()
+                    .AnyAsync(token => token.TokenHash.SequenceEqual(tokenHash));
+
+                if (isRevoked)
+                {
+                    context.Fail("The access token has been revoked.");
+                }
+            }
+        };
+    });
+
+builder.Services.AddAuthorization();
+
+var allowedOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>() ?? ["http://localhost:5173"];
+Console.WriteLine($"[CORS] Allowed Origins: {string.Join(", ", allowedOrigins)}");
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+        policy.WithOrigins(allowedOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials());
+});
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("Auth", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 60,
+                Window = TimeSpan.FromMinutes(15),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+    options.AddPolicy("OtpResend", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(15),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.ContentType = "application/json";
+        await context.HttpContext.Response.WriteAsJsonAsync(
+            new { message = "Too many authentication requests. Please try again later." },
+            cancellationToken);
+    };
+});
+
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<ITokenService, TokenService>();
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+builder.Services.AddHostedService<OutboxEmailDispatcher>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IImageKitService, ImageKitService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.Configure<ImageKitOptions>(builder.Configuration.GetSection(ImageKitOptions.SectionName));
+
+var app = builder.Build();
+var configuredEmail = app.Services
+    .GetRequiredService<Microsoft.Extensions.Options.IOptions<EmailOptions>>()
+    .Value;
+if (configuredEmail.Enabled)
+{
+    app.Logger.LogInformation(
+        "Email delivery enabled through {Host}:{Port} as {Username}; sender {FromEmail}; authentication {AuthenticationMode}.",
+        configuredEmail.Host,
+        configuredEmail.Port,
+        configuredEmail.Username,
+        configuredEmail.FromEmail,
+        configuredEmail.OAuth2.IsConfigured ? "OAuth2" : "SMTP password");
+}
+else
+{
+    app.Logger.LogWarning(
+        "Email delivery is disabled. Registration emails will remain pending in Integration.OutboxMessages.");
+}
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+app.UseCors("AllowFrontend");
+app.UseRateLimiter();
+app.UseAuthentication();
+app.UseAuthorization();
+app.MapControllers();
+
+app.Run();
+
+public partial class Program;
