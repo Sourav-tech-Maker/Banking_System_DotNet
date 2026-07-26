@@ -371,6 +371,7 @@ namespace BankingSystem.Api.Data
                 entity.Property(l => l.EntryType).HasMaxLength(10).IsRequired();
                 entity.Property(l => l.Amount).HasColumnType("decimal(19,4)").IsRequired();
                 entity.Property(l => l.SignedAmount)
+                    .HasColumnType("decimal(19,4)")
                     .HasComputedColumnSql("(CONVERT(DECIMAL(19,4), CASE WHEN [EntryType] = N'CREDIT' THEN [Amount] ELSE -[Amount] END))", stored: true);
                 entity.Property(l => l.CreatedAtUtc).HasColumnType("datetime2(3)").HasDefaultValueSql("SYSUTCDATETIME()");
 
@@ -483,12 +484,17 @@ namespace BankingSystem.Api.Data
             {
                 entity.HasNoKey();
                 entity.ToView("vwAccountBalances", "Banking");
+                entity.Property(v => v.CurrentBalance).HasColumnType("decimal(19,4)");
             });
 
             modelBuilder.Entity<SavingsGoalProgressView>(entity =>
             {
                 entity.HasNoKey();
                 entity.ToView("vwSavingsGoalProgress", "Savings");
+                entity.Property(v => v.TargetAmount).HasColumnType("decimal(19,4)");
+                entity.Property(v => v.CurrentAmount).HasColumnType("decimal(19,4)");
+                entity.Property(v => v.RemainingAmount).HasColumnType("decimal(19,4)");
+                entity.Property(v => v.ProgressPercentage).HasColumnType("decimal(19,4)");
             });
         }
     }

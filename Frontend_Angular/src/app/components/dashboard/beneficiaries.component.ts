@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, Output, EventEmitter } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
   LucideArrowLeft,
@@ -84,11 +84,18 @@ import { ApiService } from '../../services/api.service';
                   {{ beneficiary.accountId?._id || beneficiary.accountId }}
                 </td>
                 <td class="px-5 py-4 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">{{ beneficiary.accountType }}</td>
-                <td class="px-5 py-4 text-right">
+                <td class="px-5 py-4 text-right space-x-2">
+                  <button
+                    type="button"
+                    (click)="sendMoney.emit(beneficiary.accountId?._id || beneficiary.accountId)"
+                    class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-600 transition hover:bg-indigo-100 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:bg-indigo-900 cursor-pointer"
+                  >
+                    Send Money
+                  </button>
                   <button
                     type="button"
                     (click)="confirmDelete(beneficiary)"
-                    class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-semibold text-rose-600 transition hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/40"
+                    class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-semibold text-rose-600 transition hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/40 cursor-pointer"
                   >
                     <svg lucideTrash2 class="size-4"></svg>
                     Remove
@@ -255,6 +262,7 @@ import { ApiService } from '../../services/api.service';
   `
 })
 export class BeneficiariesViewComponent implements OnInit {
+  @Output() sendMoney = new EventEmitter<string>();
   private readonly apiService = inject(ApiService);
 
   protected beneficiaries = signal<any[]>([]);

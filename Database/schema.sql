@@ -1,4 +1,15 @@
 -- =========================================================================
+-- ⚠️  DEPRECATED — DO NOT USE FOR NEW DEPLOYMENTS
+-- This file is a legacy artifact from the initial MongoDB-to-SQL migration.
+-- The canonical schema is defined in the numbered files:
+--   • 00_CreateDatabase.sql
+--   • 01_NormalizedSchema.sql
+--   • 02_LedgerAndTransactions.sql
+--   • 03_IntegrityChecks.sql
+-- This file uses the 'dbo' schema, wrong data types (DECIMAL(18,4) vs 19,4),
+-- and stores DateOfBirth as NVARCHAR(50) instead of DATE.
+-- It is kept only for historical reference.
+-- =========================================================================
 -- YONO BANK DIGITAL BANKING SUITE - SQL SERVER DATABASE SCHEMA SCRIPT
 -- Compatible with SQL Server Management Studio (SSMS) & Azure SQL Database
 -- =========================================================================

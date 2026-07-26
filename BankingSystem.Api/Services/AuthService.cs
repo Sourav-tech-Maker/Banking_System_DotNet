@@ -64,9 +64,42 @@ public sealed class AuthService(
 
             if (role is null)
             {
-                throw new ApiException(
-                    StatusCodes.Status500InternalServerError,
-                    "Authentication roles are missing. Run the canonical SQL Server schema script.");
+                var standardRoles = new (string RoleName, string Normalized)[]
+                {
+                    ("user", "USER"),
+                    ("admin", "ADMIN"),
+                    ("systemUser", "SYSTEMUSER")
+                };
+
+                foreach (var (rName, rNorm) in standardRoles)
+                {
+                    var exists = await context.Roles.AnyAsync(
+                        item => item.NormalizedRoleName == rNorm,
+                        cancellationToken);
+
+                    if (!exists)
+                    {
+                        context.Roles.Add(new Role
+                        {
+                            RoleId = Guid.NewGuid(),
+                            RoleName = rName,
+                            CreatedAtUtc = now
+                        });
+                    }
+                }
+
+                await context.SaveChangesAsync(cancellationToken);
+
+                role = await context.Roles.SingleOrDefaultAsync(
+                    item => item.NormalizedRoleName == normalizedRole,
+                    cancellationToken);
+
+                if (role is null)
+                {
+                    throw new ApiException(
+                        StatusCodes.Status500InternalServerError,
+                        "Failed to initialize authentication roles in database.");
+                }
             }
 
             var user = new User

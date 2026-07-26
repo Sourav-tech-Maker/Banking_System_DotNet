@@ -426,7 +426,7 @@ BEGIN TRY
         CONSTRAINT [CK_BankAccounts_Status]
             CHECK ([AccountStatus] IN (N'ACTIVE', N'FROZEN', N'CLOSED')),
         CONSTRAINT [CK_BankAccounts_Purpose]
-            CHECK ([AccountPurpose] IN (N'CUSTOMER', N'TREASURY', N'CLEARING', N'REVENUE')),
+            CHECK ([AccountPurpose] IN (N'CUSTOMER', N'TREASURY', N'CLEARING', N'REVENUE', N'INTERNAL_OPERATIONAL')),
         CONSTRAINT [CK_BankAccounts_Currency]
             CHECK ([CurrencyCode] = UPPER([CurrencyCode]) AND [CurrencyCode] NOT LIKE '%[^A-Z]%'),
         CONSTRAINT [CK_BankAccounts_Closed]

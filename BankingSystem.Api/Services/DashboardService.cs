@@ -143,7 +143,20 @@ namespace BankingSystem.Api.Services
                 }
             }
 
-            // 8. Construct response
+            // 8. Fetch user roles
+            var userRoles = await context.UserRoles
+                .AsNoTracking()
+                .Where(ur => ur.UserId == user.UserId)
+                .Include(ur => ur.Role)
+                .Select(ur => ur.Role.RoleName)
+                .ToListAsync(cancellationToken);
+
+            var primaryRole = userRoles.FirstOrDefault(r => string.Equals(r, "admin", StringComparison.OrdinalIgnoreCase))
+                ?? userRoles.FirstOrDefault(r => string.Equals(r, "systemUser", StringComparison.OrdinalIgnoreCase))
+                ?? userRoles.FirstOrDefault()
+                ?? "customer";
+
+            // 9. Construct response
             return new
             {
                 user = new
@@ -151,6 +164,8 @@ namespace BankingSystem.Api.Services
                     id = user.UserId,
                     username = user.UserName,
                     email = user.Email,
+                    role = primaryRole,
+                    roles = userRoles,
                     verified = user.EmailVerified,
                     kycStatus
                 },
@@ -159,8 +174,7 @@ namespace BankingSystem.Api.Services
                     totalBalance,
                     totalIncome,
                     totalExpense,
-                    oNEO_BankCoins = oneoBankCoins, // Map ONEO_BankCoins correctly (camelCase is oneo_BankCoins / oNEO_BankCoins in React depending on fetch parsing)
-                    oneo_BankCoins = oneoBankCoins, // Provide both formats to be safe
+                    oneo_BankCoins = oneoBankCoins,
                     totalAccounts = accounts.Count,
                     accountStatus = accounts.Count > 0 ? accounts[0].AccountStatus : "No Account"
                 },
@@ -200,7 +214,7 @@ namespace BankingSystem.Api.Services
             {
                 return new
                 {
-                    id = (string?)null,
+                    id = (Guid?)null,
                     holderName = "Unknown account holder",
                     email = "",
                     accountType = "Account",

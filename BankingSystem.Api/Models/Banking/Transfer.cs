@@ -9,7 +9,7 @@ namespace BankingSystem.Api.Models.Banking
         public Guid TransferId { get; set; }
         public string? LegacyObjectId { get; set; }
         public long TransferNumber { get; set; }
-        public string TransferReference { get; private set; } = null!; // Database computed column
+        public string? TransferReference { get; set; }
         public string IdempotencyKey { get; set; } = null!;
         public Guid FromAccountId { get; set; }
         public Guid ToAccountId { get; set; }

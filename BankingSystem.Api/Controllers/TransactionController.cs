@@ -323,7 +323,7 @@ namespace BankingSystem.Api.Controllers
             {
                 _id = txn.TransferId, // Map to _id to match MERN
                 id = txn.TransferId,
-                FromAccount = txn.FromAccountId,
+                fromAccount = txn.FromAccountId,
                 toAccount = txn.ToAccountId,
                 amount = txn.Amount,
                 idempotencyKey = txn.IdempotencyKey,
@@ -339,7 +339,7 @@ namespace BankingSystem.Api.Controllers
             {
                 return new
                 {
-                    id = (string?)null,
+                    id = (Guid?)null,
                     holderName = "Unknown account holder",
                     email = "",
                     accountType = "Account",

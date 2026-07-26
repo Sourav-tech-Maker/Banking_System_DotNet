@@ -265,13 +265,28 @@ export class LoginComponent {
     this.errorMessage.set('');
     this.successMessage.set('');
 
+    // Clear any stale auth state from previous sessions
+    // to prevent interference with the new login attempt
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('YONO AppUser');
+
     this.apiService.login(this.formData).subscribe({
       next: (res) => {
         this.successMessage.set(res.message || 'Login successful!');
-        sessionStorage.setItem('YONO AppUser', JSON.stringify(res.user || {}));
+        const userToStore = {
+          ...(res.user || {}),
+          accessToken: res.accessToken
+        };
+        sessionStorage.setItem('YONO AppUser', JSON.stringify(userToStore));
+        if (res.accessToken) {
+          localStorage.setItem('token', res.accessToken);
+          sessionStorage.setItem('token', res.accessToken);
+        }
         setTimeout(() => {
+          this.loading.set(false);
           this.router.navigate(['/home'], { state: { email: this.formData.email } });
-        }, 1500);
+        }, 500);
       },
       error: (err) => {
         this.loading.set(false);

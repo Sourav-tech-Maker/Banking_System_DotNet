@@ -51,7 +51,8 @@ public sealed class TokenService : ITokenService
                 new Claim(JwtRegisteredClaimNames.Sub, userId),
                 new Claim(JwtRegisteredClaimNames.Jti, jwtId),
                 new Claim("userid", userId),
-                new Claim("role", role)
+                new Claim("role", role),
+                new Claim(ClaimTypes.Role, role)
             ],
             notBefore: now,
             expires: expiresAtUtc,

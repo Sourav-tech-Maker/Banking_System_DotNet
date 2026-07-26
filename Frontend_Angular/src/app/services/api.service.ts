@@ -11,26 +11,43 @@ export class ApiService {
 
 
   private getOptions() {
+    let headers = new HttpHeaders();
+    const stored = sessionStorage.getItem('YONO AppUser');
+    let token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (!token && stored) {
+      try {
+        const u = JSON.parse(stored);
+        token = u.accessToken || u.token;
+      } catch {}
+    }
+    if (token) {
+      headers = headers.set('Authorization', `Bearer ${token}`);
+    }
     return {
+      headers,
       withCredentials: true
     };
   }
 
+  private getPublicOptions() {
+    return { withCredentials: true };
+  }
+
   // --- Auth APIs ---
   register(body: any): Observable<any> {
-    return this.http.post(`${this.baseUrl}/api/auth/register`, body, this.getOptions());
+    return this.http.post(`${this.baseUrl}/api/auth/register`, body, this.getPublicOptions());
   }
 
   login(body: any): Observable<any> {
-    return this.http.post(`${this.baseUrl}/api/auth/login`, body, this.getOptions());
+    return this.http.post(`${this.baseUrl}/api/auth/login`, body, this.getPublicOptions());
   }
 
   verifyOtp(body: any): Observable<any> {
-    return this.http.post(`${this.baseUrl}/api/auth/verify-otp`, body, this.getOptions());
+    return this.http.post(`${this.baseUrl}/api/auth/verify-otp`, body, this.getPublicOptions());
   }
 
   resendOtp(body: any): Observable<any> {
-    return this.http.post(`${this.baseUrl}/api/auth/resend-otp`, body, this.getOptions());
+    return this.http.post(`${this.baseUrl}/api/auth/resend-otp`, body, this.getPublicOptions());
   }
 
   logout(): Observable<any> {
@@ -44,6 +61,16 @@ export class ApiService {
   // --- Profile / User ---
   getProfile(): Observable<any> {
     return this.http.get(`${this.baseUrl}/api/user/profile`, this.getOptions());
+  }
+
+  // Profile Update
+  updateProfile(body: { username: string }): Observable<any> {
+    return this.http.put(`${this.baseUrl}/api/user/profile`, body, this.getOptions());
+  }
+
+  // Password Change
+  changePassword(body: { currentPassword: string; newPassword: string }): Observable<any> {
+    return this.http.put(`${this.baseUrl}/api/user/password`, body, this.getOptions());
   }
 
   // --- Dashboard ---
@@ -117,6 +144,10 @@ export class ApiService {
     return this.http.post(`${this.baseUrl}/api/goals/add-amount`, body, this.getOptions());
   }
 
+  depositToGoal(goalId: string, amount: number): Observable<any> {
+    return this.http.post(`${this.baseUrl}/api/goals/add-amount`, { goalId, amount }, this.getOptions());
+  }
+
   getGoalHistory(goalId: string): Observable<any> {
     return this.http.get(`${this.baseUrl}/api/goals/history/${goalId}`, this.getOptions());
   }
@@ -128,6 +159,14 @@ export class ApiService {
   // --- KYC ---
   registerKyc(formData: FormData): Observable<any> {
     return this.http.post(`${this.baseUrl}/api/Kyc/register-kyc`, formData, this.getOptions());
+  }
+
+  getKycStatus(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/api/Kyc/status`, this.getOptions());
+  }
+
+  resubmitKyc(): Observable<any> {
+    return this.http.post(`${this.baseUrl}/api/Kyc/resubmit`, {}, this.getOptions());
   }
 
   // --- Admin ---
@@ -174,5 +213,59 @@ export class ApiService {
 
   deleteKycApplication(kycId: string): Observable<any> {
     return this.http.delete(`${this.baseUrl}/api/admin/kyc/${kycId}`, this.getOptions());
+  }
+
+  // Admin Audit Log
+  getAdminAuditLog(page: number = 1): Observable<any> {
+    const params = new HttpParams().set('page', page.toString()).set('limit', '20');
+    return this.http.get(`${this.baseUrl}/api/admin/audit-log`, { ...this.getOptions(), params });
+  }
+
+  // --- SystemUser Console APIs ---
+  getSystemHealth(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/api/system/health`, this.getOptions());
+  }
+
+  getSystemAccounts(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/api/system/accounts`, this.getOptions());
+  }
+
+  createSystemAccount(body: { accountType?: string; currencyCode?: string }): Observable<any> {
+    return this.http.post(`${this.baseUrl}/api/system/accounts`, body, this.getOptions());
+  }
+
+  systemInternalTransfer(body: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/api/system/transactions/internal-transfer`, body, this.getOptions());
+  }
+
+  systemOperationalTransfer(body: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/api/system/transactions/operational-transfer`, body, this.getOptions());
+  }
+
+  getSystemLedgerReconciliation(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/api/system/ledger`, this.getOptions());
+  }
+
+  getSystemSettings(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/api/system/settings`, this.getOptions());
+  }
+
+  updateSystemSettings(body: any): Observable<any> {
+    return this.http.put(`${this.baseUrl}/api/system/settings`, body, this.getOptions());
+  }
+
+  getSystemSecurityEvents(page: number = 1, pageSize: number = 20): Observable<any> {
+    const params = new HttpParams().set('page', page.toString()).set('pageSize', pageSize.toString());
+    return this.http.get(`${this.baseUrl}/api/system/security/events`, { ...this.getOptions(), params });
+  }
+
+  unlockCustomerAccount(targetUserId: string): Observable<any> {
+    return this.http.post(`${this.baseUrl}/api/system/security/unlock-user/${targetUserId}`, {}, this.getOptions());
+  }
+
+  getSystemAuditLogs(action?: string, page: number = 1, pageSize: number = 20): Observable<any> {
+    let params = new HttpParams().set('page', page.toString()).set('pageSize', pageSize.toString());
+    if (action) params = params.set('action', action);
+    return this.http.get(`${this.baseUrl}/api/system/audit`, { ...this.getOptions(), params });
   }
 }

@@ -13,6 +13,7 @@ import {
   LucidePiggyBank,
   LucideSend,
   LucideSettings,
+  LucideServer,
   LucideShieldCheck,
   LucideShieldCog,
   LucideSun,
@@ -34,6 +35,7 @@ import { GoalsViewComponent } from './dashboard/goals.component';
 import { ProfileViewComponent } from './dashboard/profile.component';
 import { SettingsViewComponent } from './dashboard/settings.component';
 import { AdminPanelComponent } from './dashboard/admin.component';
+import { SystemConsoleComponent } from './system-console/system-console.component';
 
 @Component({
   selector: 'app-home',
@@ -55,6 +57,13 @@ import { AdminPanelComponent } from './dashboard/admin.component';
     LucideSun,
     LucideUserRound,
     LucideUsersRound,
+    LucideSettings,
+    LucideServer,
+    LucideShieldCheck,
+    LucideShieldCog,
+    LucideSun,
+    LucideUserRound,
+    LucideUsersRound,
     LucideX,
     StatsCardsComponent,
     RecentTransactionsComponent,
@@ -67,7 +76,8 @@ import { AdminPanelComponent } from './dashboard/admin.component';
     GoalsViewComponent,
     ProfileViewComponent,
     SettingsViewComponent,
-    AdminPanelComponent
+    AdminPanelComponent,
+    SystemConsoleComponent
   ],
   template: `
     <div [class.dark]="isDarkMode()" class="min-h-screen bg-slate-50 text-slate-900 transition-colors duration-300 dark:bg-slate-900 dark:text-slate-100 md:flex">
@@ -116,16 +126,28 @@ import { AdminPanelComponent } from './dashboard/admin.component';
               <span>{{ link.name }}</span>
             </button>
 
-            <!-- Admin Console Link (shown only if role is admin) -->
+            <!-- Admin Console Link (shown if role is admin) -->
             <button
               *ngIf="isAdmin()"
               type="button"
               (click)="navigateTo('admin')"
               [ngClass]="activeView() === 'admin' ? 'bg-rose-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-900 hover:text-white'"
-              class="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition text-left border border-dashed border-rose-800/40 mt-6"
+              class="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition text-left border border-dashed border-rose-800/40 mt-4"
             >
               <svg lucideShieldCog class="size-[18px]"></svg>
               <span>Admin Console</span>
+            </button>
+
+            <!-- SystemUser Console Link (shown if role is systemUser) -->
+            <button
+              *ngIf="isSystemUser()"
+              type="button"
+              (click)="navigateTo('system-console')"
+              [ngClass]="activeView() === 'system-console' ? 'bg-indigo-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-900 hover:text-white'"
+              class="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition text-left border border-dashed border-indigo-700/50 mt-2"
+            >
+              <svg lucideServer class="size-[18px]"></svg>
+              <span>SystemUser Console</span>
             </button>
           </nav>
         </div>
@@ -209,6 +231,26 @@ import { AdminPanelComponent } from './dashboard/admin.component';
 
             <!-- DASHBOARD CONTAINER VIEW -->
             <div *ngIf="!loading() && activeView() === 'dashboard'" class="space-y-4 sm:space-y-6">
+              <!-- Personalized Greeting Banner -->
+              <div class="rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 p-6 text-white shadow-md dark:border-indigo-950">
+                <div class="flex items-center justify-between gap-4">
+                  <div>
+                    <span class="inline-block rounded-full bg-indigo-500/30 px-3 py-1 text-xs font-bold text-indigo-200">
+                      {{ getGreetingTime() }}
+                    </span>
+                    <h1 class="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
+                      Welcome back, {{ user()?.username || 'Customer' }}!
+                    </h1>
+                    <p class="mt-1 text-xs text-indigo-200 sm:text-sm">
+                      Here is your financial summary and real-time ledger status.
+                    </p>
+                  </div>
+                  <div class="hidden sm:flex size-14 items-center justify-center rounded-2xl bg-white/10 text-2xl backdrop-blur-md">
+                    👋
+                  </div>
+                </div>
+              </div>
+
               <!-- Statistics -->
               <app-stats-cards [summary]="dashboard()?.summary"></app-stats-cards>
 
@@ -229,12 +271,13 @@ import { AdminPanelComponent } from './dashboard/admin.component';
             <!-- OTHER DYNAMIC VIEWS -->
             <app-transactions-view *ngIf="activeView() === 'transactions'"></app-transactions-view>
             <app-open-account-view *ngIf="activeView() === 'open-account'"></app-open-account-view>
-            <app-kyc-verification-view *ngIf="activeView() === 'kyc'"></app-kyc-verification-view>
-            <app-beneficiaries-view *ngIf="activeView() === 'beneficiaries'"></app-beneficiaries-view>
+            <app-kyc-verification-view *ngIf="activeView() === 'kyc'" (navigateToOpenAccount)="navigateTo('open-account')"></app-kyc-verification-view>
+            <app-beneficiaries-view *ngIf="activeView() === 'beneficiaries'" (sendMoney)="openQuickSend($event)"></app-beneficiaries-view>
             <app-goals-view *ngIf="activeView() === 'goals'"></app-goals-view>
             <app-profile-view *ngIf="activeView() === 'profile'"></app-profile-view>
             <app-settings-view *ngIf="activeView() === 'settings'" (onThemeChange)="handleThemeChange($event)"></app-settings-view>
             <app-admin-panel *ngIf="activeView() === 'admin'"></app-admin-panel>
+            <app-system-console *ngIf="activeView() === 'system-console'"></app-system-console>
           </div>
         </main>
       </div>
@@ -377,8 +420,15 @@ export class HomeComponent implements OnInit {
   }
 
   protected isAdmin(): boolean {
-    const role = this.user()?.role;
-    return role === 'admin' || role === 'systemUser';
+    const role = (this.user()?.role || '').toString().toLowerCase();
+    const username = (this.user()?.username || '').toString().toLowerCase();
+    return role === 'admin' || username === 'admin';
+  }
+
+  protected isSystemUser(): boolean {
+    const role = (this.user()?.role || '').toString().toLowerCase();
+    const username = (this.user()?.username || '').toString().toLowerCase();
+    return role === 'systemuser' || role === 'system_user' || username === 'systemuser';
   }
 
   protected fetchDashboardData() {
@@ -386,7 +436,13 @@ export class HomeComponent implements OnInit {
     this.apiService.getDashboard().subscribe({
       next: (res) => {
         this.dashboard.set(res);
-        this.user.set(res.user);
+        const existingRole = this.user()?.role;
+        const mergedUser = {
+          ...res.user,
+          role: res.user?.role || existingRole || (res.user?.username?.toLowerCase() === 'admin' ? 'admin' : 'customer')
+        };
+        this.user.set(mergedUser);
+        sessionStorage.setItem('YONO AppUser', JSON.stringify(mergedUser));
         this.loading.set(false);
       },
       error: (err) => {
@@ -436,16 +492,28 @@ export class HomeComponent implements OnInit {
     });
   }
 
+  protected openQuickSend(accountId: string) {
+    this.openSendMoneyModal();
+    this.sendForm.toAccount = accountId;
+  }
+
+  protected getGreetingTime(): string {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  }
+
   protected handleSendMoney(event: Event) {
     event.preventDefault();
     this.modalLoading.set(true);
     this.sendError.set('');
     this.sendSuccess.set('');
 
-    const idempotencyKey = `transfer-${this.sendForm.fromAccount}-${DateTimeOffset.UtcNow.Ticks}`;
+    const idempotencyKey = `transfer-${this.sendForm.fromAccount}-${crypto.randomUUID()}`;
 
     this.apiService.createTransaction({
-      FromAccount: this.sendForm.fromAccount,
+      fromAccount: this.sendForm.fromAccount,
       toAccount: this.sendForm.toAccount,
       amount: this.sendForm.amount,
       idempotencyKey: idempotencyKey
@@ -489,11 +557,3 @@ export class HomeComponent implements OnInit {
   }
 }
 
-// Simple DateTimeOffset helper class
-class DateTimeOffset {
-  static get UtcNow() {
-    return {
-      Ticks: Date.now() + Math.random().toString().slice(2, 6)
-    };
-  }
-}

@@ -16,10 +16,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BankingSystem.Api.Controllers
 {
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "admin,ADMIN")]
     [ApiController]
     [Route("api/[controller]")]
-    public sealed class AdminController(AppDbContext context, TimeProvider timeProvider) : ControllerBase
+    public sealed class AdminController(AppDbContext context, TimeProvider timeProvider, ILogger<AdminController> logger) : ControllerBase
     {
         public sealed class StatusUpdateRequest
         {
@@ -29,102 +29,172 @@ namespace BankingSystem.Api.Controllers
         [HttpGet("kyc-applications")]
         public async Task<IActionResult> GetKycApplications([FromQuery] string? status, CancellationToken cancellationToken)
         {
-            var query = context.KycApplications
-                .Include(k => k.KycAddress)
-                .Include(k => k.KycDocuments)
-                .AsNoTracking();
-
-            if (!string.IsNullOrWhiteSpace(status))
+            try
             {
-                query = query.Where(k => k.KycStatus == status);
-            }
+                var query = context.KycApplications
+                    .Include(k => k.KycAddress)
+                    .Include(k => k.KycDocuments)
+                    .AsNoTracking();
 
-            var applications = await query
-                .OrderBy(k => k.KycStatus == "Pending" ? 0 : 1)
-                .ThenByDescending(k => k.SubmittedAtUtc)
-                .ToListAsync(cancellationToken);
-
-            var userIds = applications.Select(a => a.UserId).Distinct().ToList();
-            var users = await context.Users
-                .AsNoTracking()
-                .Where(u => userIds.Contains(u.UserId))
-                .ToDictionaryAsync(u => u.UserId, cancellationToken);
-
-            var responseList = applications.Select(k =>
-            {
-                var user = users.GetValueOrDefault(k.UserId);
-                return new
+                if (!string.IsNullOrWhiteSpace(status) && !string.Equals(status.Trim(), "all", StringComparison.OrdinalIgnoreCase))
                 {
-                    _id = k.KycApplicationId,
-                    id = k.KycApplicationId,
-                    userId = k.UserId,
-                    userIdData = user != null ? new { _id = user.UserId, username = user.UserName, email = user.Email } : null,
-                    fullName = k.FullName,
-                    dateOfBirth = k.DateOfBirth.ToString("yyyy-MM-dd"),
-                    gender = k.Gender,
-                    permanentAddress = k.KycAddress != null ? new
-                    {
-                        street = k.KycAddress.Street,
-                        city = k.KycAddress.City,
-                        state = k.KycAddress.StateOrProvince,
-                        country = k.KycAddress.Country,
-                        postalCode = k.KycAddress.PostalCode
-                    } : null,
-                    documentType = k.KycDocuments.FirstOrDefault()?.DocumentType,
-                    documentNumber = k.KycDocuments.FirstOrDefault()?.DocumentNumber,
-                    documentImg = k.KycDocuments.FirstOrDefault()?.DocumentImageUrl,
-                    status = k.KycStatus,
-                    rejectReason = k.RejectionReason,
-                    createdAt = k.SubmittedAtUtc
-                };
-            }).ToList();
+                    var normStatus = status.Trim().ToUpperInvariant();
+                    query = query.Where(k => k.KycStatus.ToUpper() == normStatus);
+                }
 
-            return Ok(new
+                var applications = await query
+                    .OrderBy(k => k.KycStatus == "PENDING" ? 0 : 1)
+                    .ThenByDescending(k => k.SubmittedAtUtc)
+                    .ToListAsync(cancellationToken);
+
+                var userIds = applications.Select(a => a.UserId).Distinct().ToList();
+                var userList = await context.Users
+                    .AsNoTracking()
+                    .Where(u => userIds.Contains(u.UserId))
+                    .ToListAsync(cancellationToken);
+
+                var users = userList
+                    .GroupBy(u => u.UserId)
+                    .ToDictionary(g => g.Key, g => g.First());
+
+                var responseList = applications.Select(k =>
+                {
+                    var user = users.GetValueOrDefault(k.UserId);
+                    var address = k.KycAddress;
+
+                    var identityDoc = k.KycDocuments.FirstOrDefault(d =>
+                        !string.IsNullOrEmpty(d.DocumentNumber) &&
+                        !d.DocumentNumber.StartsWith("PHOTO_") &&
+                        !d.DocumentNumber.StartsWith("SIG_") &&
+                        !d.DocumentNumber.StartsWith("FORM60_"))
+                        ?? k.KycDocuments.FirstOrDefault();
+
+                    var photoDoc = k.KycDocuments.FirstOrDefault(d => !string.IsNullOrEmpty(d.DocumentNumber) && d.DocumentNumber.StartsWith("PHOTO_"));
+                    var sigDoc = k.KycDocuments.FirstOrDefault(d => !string.IsNullOrEmpty(d.DocumentNumber) && d.DocumentNumber.StartsWith("SIG_"));
+                    var panDoc = k.KycDocuments.FirstOrDefault(d => (!string.IsNullOrEmpty(d.DocumentType) && d.DocumentType == "PAN_CARD") || (!string.IsNullOrEmpty(d.DocumentNumber) && d.DocumentNumber.StartsWith("FORM60_")));
+
+                    var docList = k.KycDocuments.Select(d => new
+                    {
+                        id = d.KycDocumentId,
+                        documentType = d.DocumentType ?? "IDENTITY_PROOF",
+                        documentNumber = d.DocumentNumber ?? "N/A",
+                        documentImageUrl = d.DocumentImageUrl ?? string.Empty,
+                        documentImg = d.DocumentImageUrl ?? string.Empty,
+                        uploadedAt = d.UploadedAtUtc
+                    }).ToList();
+
+                    return new
+                    {
+                        _id = k.KycApplicationId,
+                        id = k.KycApplicationId,
+                        userId = k.UserId,
+                        userName = user?.UserName ?? "N/A",
+                        username = user?.UserName ?? "N/A",
+                        email = user?.Email ?? "N/A",
+                        userIdData = user != null ? new { _id = user.UserId, username = user.UserName, email = user.Email } : null,
+                        user = user != null ? new { id = user.UserId, username = user.UserName, email = user.Email } : null,
+                        fullName = k.FullName,
+                        dateOfBirth = k.DateOfBirth.ToString("yyyy-MM-dd"),
+                        gender = k.Gender,
+                        status = k.KycStatus,
+                        rejectionReason = k.RejectionReason,
+                        rejectReason = k.RejectionReason,
+                        submittedAt = k.SubmittedAtUtc,
+                        createdAt = k.SubmittedAtUtc,
+                        address = address != null ? new
+                        {
+                            street = address.Street,
+                            city = address.City,
+                            state = address.StateOrProvince,
+                            country = address.Country,
+                            postalCode = address.PostalCode
+                        } : null,
+                        permanentAddress = address != null ? new
+                        {
+                            street = address.Street,
+                            city = address.City,
+                            state = address.StateOrProvince,
+                            country = address.Country,
+                            postalCode = address.PostalCode
+                        } : null,
+                        documentType = identityDoc?.DocumentType ?? "IDENTITY_PROOF",
+                        documentNumber = identityDoc?.DocumentNumber ?? "N/A",
+                        documentImageUrl = identityDoc?.DocumentImageUrl,
+                        documentImg = identityDoc?.DocumentImageUrl,
+                        photoUrl = photoDoc?.DocumentImageUrl,
+                        signatureUrl = sigDoc?.DocumentImageUrl,
+                        panNumber = panDoc?.DocumentNumber,
+                        panImageUrl = panDoc?.DocumentImageUrl,
+                        documents = docList
+                    };
+                }).ToList();
+
+                return Ok(new
+                {
+                    status = "success",
+                    results = responseList.Count,
+                    applications = responseList
+                });
+            }
+            catch (Exception ex)
             {
-                status = "success",
-                results = responseList.Count,
-                applications = responseList
-            });
+                logger.LogError(ex, "Error occurred in GetKycApplications");
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Failed to load KYC applications", error = ex.Message });
+            }
         }
 
         [HttpGet("stats")]
         public async Task<IActionResult> GetAdminStats(CancellationToken cancellationToken)
         {
-            // Count roles mapping to users
-            var userRoleId = await context.Roles
-                .AsNoTracking()
-                .Where(r => r.NormalizedRoleName == "USER")
-                .Select(r => r.RoleId)
-                .FirstOrDefaultAsync(cancellationToken);
-
-            var totalUsers = await context.UserRoles
-                .Where(ur => ur.RoleId == userRoleId)
-                .CountAsync(cancellationToken);
-
+            var totalUsers = await context.Users.CountAsync(cancellationToken);
             var totalAccounts = await context.BankAccounts.CountAsync(cancellationToken);
             var totalTransactions = await context.Transfers.CountAsync(cancellationToken);
 
             decimal totalSystemBalance = await context.BankAccountBalanceViews
-                .SumAsync(v => v.CurrentBalance, cancellationToken);
+                .Select(v => (decimal?)v.CurrentBalance)
+                .SumAsync(cancellationToken) ?? 0m;
 
-            var pendingKyc = await context.KycApplications.CountAsync(k => k.KycStatus == "Pending", cancellationToken);
+            var pendingKyc = await context.KycApplications.CountAsync(k => k.KycStatus == "PENDING", cancellationToken);
             var approvedKyc = await context.KycApplications.CountAsync(k => k.KycStatus == "APPROVED", cancellationToken);
             var rejectedKyc = await context.KycApplications.CountAsync(k => k.KycStatus == "REJECTED", cancellationToken);
+            var totalKyc = pendingKyc + approvedKyc + rejectedKyc;
+
+            var statsObj = new
+            {
+                totalUsers,
+                totalAccounts,
+                totalTransactions,
+                totalSystemBalance,
+                totalKyc,
+                pendingKyc,
+                approvedKyc,
+                rejectedKyc,
+                kyc = new
+                {
+                    pending = pendingKyc,
+                    approved = approvedKyc,
+                    rejected = rejectedKyc,
+                    total = totalKyc
+                }
+            };
 
             return Ok(new
             {
-                stats = new
+                stats = statsObj,
+                totalUsers,
+                totalAccounts,
+                totalTransactions,
+                totalSystemBalance,
+                totalKyc,
+                pendingKyc,
+                approvedKyc,
+                rejectedKyc,
+                kyc = new
                 {
-                    totalUsers,
-                    totalAccounts,
-                    totalTransactions,
-                    totalSystemBalance,
-                    kyc = new
-                    {
-                        pending = pendingKyc,
-                        approved = approvedKyc,
-                        rejected = rejectedKyc
-                    }
+                    pending = pendingKyc,
+                    approved = approvedKyc,
+                    rejected = rejectedKyc,
+                    total = totalKyc
                 }
             });
         }
@@ -132,28 +202,23 @@ namespace BankingSystem.Api.Controllers
         [HttpGet("users")]
         public async Task<IActionResult> GetAllUsers(CancellationToken cancellationToken)
         {
-            // Find regular users
-            var userRoleId = await context.Roles
-                .AsNoTracking()
-                .Where(r => r.NormalizedRoleName == "USER")
-                .Select(r => r.RoleId)
-                .FirstOrDefaultAsync(cancellationToken);
-
-            var userIds = await context.UserRoles
-                .Where(ur => ur.RoleId == userRoleId)
-                .Select(ur => ur.UserId)
-                .ToListAsync(cancellationToken);
-
             var users = await context.Users
                 .AsNoTracking()
-                .Where(u => userIds.Contains(u.UserId))
                 .ToListAsync(cancellationToken);
 
+            var userIds = users.Select(u => u.UserId).ToList();
+
             // Fetch kyc and accounts
-            var kycRecords = await context.KycApplications
+            var kycList = await context.KycApplications
                 .AsNoTracking()
                 .Where(k => userIds.Contains(k.UserId))
-                .ToDictionaryAsync(k => k.UserId, cancellationToken);
+                .GroupBy(k => k.UserId)
+                .Select(g => g.OrderByDescending(k => k.SubmittedAtUtc).First())
+                .ToListAsync(cancellationToken);
+
+            var kycRecords = kycList
+                .GroupBy(k => k.UserId)
+                .ToDictionary(g => g.Key, g => g.First());
 
             var balances = await context.BankAccountBalanceViews
                 .AsNoTracking()
@@ -314,11 +379,15 @@ namespace BankingSystem.Api.Controllers
                 .ToListAsync(cancellationToken);
 
             var accountIds = transfers.Select(t => t.FromAccountId).Union(transfers.Select(t => t.ToAccountId)).Distinct().ToList();
-            var accounts = await context.BankAccounts
+            var accountList = await context.BankAccounts
                 .AsNoTracking()
                 .Where(a => accountIds.Contains(a.AccountId))
                 .Include(a => a.User)
-                .ToDictionaryAsync(a => a.AccountId, cancellationToken);
+                .ToListAsync(cancellationToken);
+
+            var accounts = accountList
+                .GroupBy(a => a.AccountId)
+                .ToDictionary(g => g.Key, g => g.First());
 
             var transactionsList = transfers.Select(t =>
             {
@@ -403,8 +472,8 @@ namespace BankingSystem.Api.Controllers
 
                 var generatedId = (Guid)reversalTransferIdParam.Value;
 
-                var completedReversal = await context.Transfers
-                    .FirstOrDefaultAsync(t => t.TransferId == generatedId, cancellationToken);
+                // Refresh the original transfer entity from DB to get updated status
+                await context.Entry(txn).ReloadAsync(cancellationToken);
 
                 return Ok(new
                 {
@@ -443,7 +512,7 @@ namespace BankingSystem.Api.Controllers
                 return NotFound(new { message = "KYC application not found", status = "failed" });
             }
 
-            if (kycRecord.KycStatus == "Pending")
+            if (kycRecord.KycStatus == "PENDING")
             {
                 return BadRequest(new { message = "Cannot delete a pending KYC application. Approve or reject it first.", status = "failed" });
             }
@@ -462,6 +531,59 @@ namespace BankingSystem.Api.Controllers
             {
                 message = "KYC application deleted successfully. User can now re-submit KYC.",
                 status = "success"
+            });
+        }
+
+        [HttpGet("audit-log")]
+        public async Task<IActionResult> GetAuditLogs(
+            [FromQuery] int page = 1,
+            [FromQuery] int limit = 20,
+            CancellationToken cancellationToken = default)
+        {
+            if (page < 1) page = 1;
+            if (limit < 1 || limit > 100) limit = 20;
+
+            var query = context.AdminEvents.AsNoTracking();
+            var totalCount = await query.CountAsync(cancellationToken);
+
+            var events = await query
+                .OrderByDescending(e => e.CreatedAtUtc)
+                .Skip((page - 1) * limit)
+                .Take(limit)
+                .ToListAsync(cancellationToken);
+
+            var adminUserIds = events.Where(e => e.ActorUserId.HasValue).Select(e => e.ActorUserId!.Value).Distinct().ToList();
+            var adminList = await context.Users.AsNoTracking()
+                .Where(u => adminUserIds.Contains(u.UserId))
+                .ToListAsync(cancellationToken);
+
+            var admins = adminList
+                .GroupBy(u => u.UserId)
+                .ToDictionary(g => g.Key, g => g.First());
+
+            var responseList = events.Select(e =>
+            {
+                var admin = e.ActorUserId.HasValue ? admins.GetValueOrDefault(e.ActorUserId.Value) : null;
+                return new
+                {
+                    eventId = e.AdminEventId,
+                    adminUser = admin?.UserName ?? "System Admin",
+                    adminEmail = admin?.Email,
+                    eventType = e.EventType,
+                    targetEntityId = e.EntityId,
+                    details = e.EventDataJson,
+                    ipAddress = e.IpAddress,
+                    createdAt = e.CreatedAtUtc
+                };
+            }).ToList();
+
+            return Ok(new
+            {
+                page,
+                limit,
+                totalCount,
+                totalPages = (int)Math.Ceiling((double)totalCount / limit),
+                logs = responseList
             });
         }
     }

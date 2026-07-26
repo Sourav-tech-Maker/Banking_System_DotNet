@@ -17,6 +17,7 @@ internal static class EmailMessageFactory
             "BeneficiaryVerificationRequested" => CreateOtpEmail(payloadJson, now, isBeneficiary: true),
             "RegistrationWelcomeRequested" => CreateWelcomeEmail(payloadJson),
             "NewDeviceLoginDetected" => CreateNewDeviceEmail(payloadJson),
+            "KycStatusUpdated" => CreateKycEmail(payloadJson),
             _ => throw new InvalidOperationException(
                 $"Unsupported email event type '{eventType}'.")
         };
@@ -150,6 +151,51 @@ internal static class EmailMessageFactory
         return new EmailMessage(payload.To, "New Device Login Detected", text, html);
     }
 
+    private static EmailMessage CreateKycEmail(string payloadJson)
+    {
+        var payload = Deserialize<KycStatusPayload>(payloadJson);
+        var encodedName = WebUtility.HtmlEncode(payload.Username);
+        var statusLower = payload.Status.ToLowerInvariant();
+        var isApproved = payload.Status == "APPROVED";
+        
+        var subject = isApproved ? "KYC Approved - YONO App" : "KYC Rejected - YONO App";
+        var statusMessage = isApproved 
+            ? "Your KYC application has been approved. Your bank account is now fully active for transactions."
+            : "Your KYC application was rejected.";
+            
+        var rejectReasonText = !isApproved && !string.IsNullOrWhiteSpace(payload.RejectReason)
+            ? $"\nRejection Reason: {payload.RejectReason}\n\nYou may resubmit your KYC application after the cooldown period."
+            : "";
+            
+        var rejectReasonHtml = !isApproved && !string.IsNullOrWhiteSpace(payload.RejectReason)
+            ? $"<div style=\"margin:22px 0;padding:16px;border-left:4px solid #dc2626;background:#fef2f2\"><strong>Rejection Reason:</strong> {WebUtility.HtmlEncode(payload.RejectReason)}<br><br>You may resubmit your KYC application after the cooldown period.</div>"
+            : "";
+
+        var text = $$"""
+            Hello {{payload.Username}},
+
+            {{statusMessage}}
+            {{rejectReasonText}}
+            
+            Regards,
+            YONO App Team
+            """;
+            
+        var html = $$"""
+            <div style="max-width:600px;margin:auto;font-family:Segoe UI,Arial,sans-serif;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;color:#1f2937">
+              <div style="padding:22px;text-align:center;background:#1e40af;color:#fff"><h2 style="margin:0">YONO App - KYC {{payload.Status}}</h2></div>
+              <div style="padding:28px">
+                <h3>Hello {{encodedName}},</h3>
+                <p>{{statusMessage}}</p>
+                {{rejectReasonHtml}}
+                <p>Regards,<br><strong>YONO App Team</strong></p>
+              </div>
+            </div>
+            """;
+
+        return new EmailMessage(payload.To, subject, text, html);
+    }
+
     private static T Deserialize<T>(string payloadJson)
     {
         var payload = JsonSerializer.Deserialize<T>(payloadJson, SerializerOptions);
@@ -171,4 +217,10 @@ internal static class EmailMessageFactory
         string IpAddress,
         string UserAgent,
         DateTime OccurredAtUtc);
+
+    private sealed record KycStatusPayload(
+        string To,
+        string Username,
+        string Status,
+        string? RejectReason);
 }

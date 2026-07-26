@@ -95,10 +95,13 @@ var jwtConfiguration = builder.Configuration
     .GetSection(JwtOptions.SectionName)
     .Get<JwtOptions>() ?? new JwtOptions();
 
+System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
+
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        options.MapInboundClaims = false;
         options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
         options.TokenValidationParameters = new TokenValidationParameters
         {
@@ -199,11 +202,21 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0,
                 AutoReplenishment = true
             }));
+    options.AddPolicy("Kyc", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(15),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
     options.OnRejected = async (context, cancellationToken) =>
     {
         context.HttpContext.Response.ContentType = "application/json";
         await context.HttpContext.Response.WriteAsJsonAsync(
-            new { message = "Too many authentication requests. Please try again later." },
+            new { message = "Too many requests. Please try again later." },
             cancellationToken);
     };
 });
@@ -218,6 +231,7 @@ builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 builder.Services.AddHostedService<OutboxEmailDispatcher>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ISystemUserService, SystemUserService>();
 builder.Services.AddScoped<IImageKitService, ImageKitService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.Configure<ImageKitOptions>(builder.Configuration.GetSection(ImageKitOptions.SectionName));
@@ -252,10 +266,47 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 app.UseCors("AllowFrontend");
+app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+// Ensure default authentication roles exist in the database on startup
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    try
+    {
+        var existingNormRoles = await dbContext.Roles.Select(r => r.NormalizedRoleName).ToListAsync();
+        var requiredRoles = new (string Name, string Norm)[]
+        {
+            ("user", "USER"),
+            ("admin", "ADMIN"),
+            ("systemUser", "SYSTEMUSER")
+        };
+
+        var missing = requiredRoles.Where(r => !existingNormRoles.Contains(r.Norm)).ToList();
+        if (missing.Count > 0)
+        {
+            foreach (var roleToSeed in missing)
+            {
+                dbContext.Roles.Add(new BankingSystem.Api.Models.Auth.Role
+                {
+                    RoleId = Guid.NewGuid(),
+                    RoleName = roleToSeed.Name,
+                    CreatedAtUtc = DateTime.UtcNow
+                });
+            }
+            await dbContext.SaveChangesAsync();
+            app.Logger.LogInformation("Seeded default authentication roles: {Roles}", string.Join(", ", missing.Select(m => m.Name)));
+        }
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex, "Could not automatically seed authentication roles on startup.");
+    }
+}
 
 app.Run();
 

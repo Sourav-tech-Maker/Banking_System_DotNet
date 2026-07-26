@@ -80,9 +80,10 @@ export class VerifyUserComponent implements OnInit {
   protected successMsg = signal('');
 
   ngOnInit() {
-    // Read state or fallback
-    const navigation = this.router.getCurrentNavigation();
-    this.email = (navigation?.extras.state as { email?: string })?.email || sessionStorage.getItem('yono_verify_email') || '';
+    // getCurrentNavigation() returns null in ngOnInit (navigation already completed);
+    // read from history.state which Angular populates from router.navigate() state.
+    const state = history.state as { email?: string } | undefined;
+    this.email = state?.email || sessionStorage.getItem('yono_verify_email') || '';
     if (!this.email) {
       this.router.navigate(['/register']);
     }
