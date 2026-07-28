@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using BankingSystem.Api.Data;
 using BankingSystem.Api.DTOs.Transaction;
 using BankingSystem.Api.Models.Banking;
+using BankingSystem.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -99,6 +100,25 @@ namespace BankingSystem.Api.Controllers
                 // Load the completed transfer
                 var completedTransfer = await context.Transfers
                     .FirstOrDefaultAsync(t => t.TransferId == generatedId, cancellationToken);
+
+                if (completedTransfer != null)
+                {
+                    try
+                    {
+                        await TransferEmailHelper.QueueTransferNotificationsAsync(
+                            context,
+                            completedTransfer.FromAccountId,
+                            completedTransfer.ToAccountId,
+                            completedTransfer.Amount,
+                            completedTransfer.TransferReference ?? completedTransfer.TransferId.ToString("N"),
+                            completedTransfer.CompletedAtUtc ?? DateTime.UtcNow,
+                            cancellationToken);
+                    }
+                    catch
+                    {
+                        // Ignore outbox queue failures to preserve financial transaction result
+                    }
+                }
 
                 return Ok(new
                 {

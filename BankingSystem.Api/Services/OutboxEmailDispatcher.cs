@@ -81,7 +81,10 @@ public sealed class OutboxEmailDispatcher(
                           (N'EmailVerificationRequested',
                            N'BeneficiaryVerificationRequested',
                            N'RegistrationWelcomeRequested',
-                           N'NewDeviceLoginDetected')
+                           N'NewDeviceLoginDetected',
+                           N'KycStatusUpdated',
+                           N'TransferDebitNotification',
+                           N'TransferCreditNotification')
                     ORDER BY [OccurredAtUtc], [OutboxMessageId]
                     """)
                 .ToListAsync(cancellationToken);

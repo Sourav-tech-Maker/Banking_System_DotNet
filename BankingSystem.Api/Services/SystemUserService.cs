@@ -228,6 +228,22 @@ namespace BankingSystem.Api.Services
                 await context.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
 
+                try
+                {
+                    await TransferEmailHelper.QueueTransferNotificationsAsync(
+                        context,
+                        fromAccount.AccountId,
+                        toAccount.AccountId,
+                        request.Amount,
+                        transfer.TransferReference,
+                        now,
+                        cancellationToken);
+                }
+                catch
+                {
+                    // Ignore notification queue failures
+                }
+
                 return transfer;
             }
             catch (DbUpdateException ex)
@@ -375,6 +391,22 @@ namespace BankingSystem.Api.Services
 
                 await context.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
+
+                try
+                {
+                    await TransferEmailHelper.QueueTransferNotificationsAsync(
+                        context,
+                        fromAccount.AccountId,
+                        toAccount.AccountId,
+                        request.Amount,
+                        transfer.TransferReference,
+                        now,
+                        cancellationToken);
+                }
+                catch
+                {
+                    // Ignore notification queue failures
+                }
 
                 return transfer;
             }
