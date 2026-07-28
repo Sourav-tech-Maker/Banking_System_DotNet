@@ -132,7 +132,7 @@ import { ApiService } from '../../services/api.service';
                 name="cardName"
                 [(ngModel)]="cardEmbossedName"
                 class="mt-1 block w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-slate-900 focus:border-indigo-500 focus:outline-none transition dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                placeholder="e.g. SOURAV SHARMA"
+                placeholder="e.g. SORAV"
               />
             </div>
 

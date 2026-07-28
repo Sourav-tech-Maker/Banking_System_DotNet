@@ -1,3 +1,18 @@
+# Environment & Secret files
+.env
+*.env
+appsettings.Local.json
+appsettings.Development.json
+
+# .NET Build Output & IDE
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
 # Angular specific
 /dist/
 /out-tsc/
@@ -11,9 +26,6 @@
 /node_modules/
 /package-lock.json
 /yarn.lock
-
-# Environment files
-/.env
 
 # Angular CLI and build artefacts
 /.angular-cli.json

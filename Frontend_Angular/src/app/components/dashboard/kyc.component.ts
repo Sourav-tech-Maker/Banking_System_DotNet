@@ -57,7 +57,7 @@ import { ApiService } from '../../services/api.service';
                   required
                   [(ngModel)]="formData.FullName"
                   class="mt-1 block w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                  placeholder="e.g. SOURAV SHARMA"
+                  placeholder="e.g. SORAV"
                 />
               </div>
 
@@ -235,52 +235,420 @@ import { ApiService } from '../../services/api.service';
                 </div>
               </div>
 
-              <!-- IF NO PAN: Show Form 60 Fields -->
-              <div *ngIf="!formData.hasPan" class="rounded-xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-900/50 dark:bg-amber-950/20 space-y-4">
-                <div class="flex items-center gap-2 text-amber-800 dark:text-amber-300 text-sm font-bold">
-                  <span>📜 Form 60 Declaration (Annexure-1) Required</span>
-                </div>
+              <!-- IF NO PAN: Show Official Form 60 (Annexure-1 / Rule 114B) Fields -->
+              <div *ngIf="!formData.hasPan" class="rounded-2xl border-2 border-amber-300 bg-amber-50/40 p-5 sm:p-6 dark:border-amber-800/80 dark:bg-amber-950/20 space-y-6">
                 
-                <div class="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label for="agriIncome" class="block text-sm font-medium text-slate-700 dark:text-slate-300">Estimated Agricultural Income (Annual Rs.)*</label>
-                    <input
-                      id="agriIncome"
-                      type="number"
-                      name="agriIncome"
-                      required
-                      [(ngModel)]="formData.form60.agriIncome"
-                      class="mt-1 block w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                      placeholder="0"
-                    />
+                <!-- Form 60 Government Title Header -->
+                <div class="border-b border-amber-200/80 pb-4 dark:border-amber-800/60">
+                  <div class="inline-flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-800 dark:text-amber-300">
+                    📜 FORM NO. 60 [See second proviso to rule 114B]
+                  </div>
+                  <h4 class="mt-2 text-base font-bold text-slate-900 dark:text-white">
+                    Declaration to be filed by an individual who does not have a Permanent Account Number (PAN)
+                  </h4>
+                  <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Enter all 24 required fields specified under Income-tax Rules, 1962.
+                  </p>
+                </div>
+
+                <!-- 1. Declarant Name Breakdown (Items 1 - 2) -->
+                <div class="space-y-3">
+                  <h5 class="text-xs font-extrabold uppercase tracking-wider text-amber-900 dark:text-amber-300">
+                    1. Name of Declarant & Date of Birth
+                  </h5>
+                  <div class="grid gap-3 sm:grid-cols-3">
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">First Name*</label>
+                      <input
+                        type="text"
+                        name="f60_firstName"
+                        required
+                        [(ngModel)]="formData.form60.firstName"
+                        class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        placeholder="SOURAV"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Middle Name</label>
+                      <input
+                        type="text"
+                        name="f60_middleName"
+                        [(ngModel)]="formData.form60.middleName"
+                        class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        placeholder="KUMAR"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Surname / Last Name*</label>
+                      <input
+                        type="text"
+                        name="f60_surname"
+                        required
+                        [(ngModel)]="formData.form60.surname"
+                        class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        placeholder="SHARMA"
+                      />
+                    </div>
                   </div>
 
                   <div>
-                    <label for="otherIncome" class="block text-sm font-medium text-slate-700 dark:text-slate-300">Estimated Non-Agricultural Income (Annual Rs.)*</label>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">2. Date of Birth / Incorporation*</label>
                     <input
-                      id="otherIncome"
-                      type="number"
-                      name="otherIncome"
+                      type="date"
+                      name="f60_dob"
                       required
-                      [(ngModel)]="formData.form60.otherIncome"
-                      class="mt-1 block w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                      placeholder="150000"
+                      [(ngModel)]="formData.form60.dob"
+                      class="mt-1 block w-full sm:w-1/2 rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
                     />
                   </div>
                 </div>
 
-                <div>
-                  <label for="reasonNoPan" class="block text-sm font-medium text-slate-700 dark:text-slate-300">Reason for not having PAN Card*</label>
-                  <input
-                    id="reasonNoPan"
-                    type="text"
-                    name="reasonNoPan"
-                    required
-                    [(ngModel)]="formData.form60.reasonNoPan"
-                    class="mt-1 block w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                    placeholder="Income below taxable threshold / PAN application in progress"
-                  />
+                <!-- 2. Father's Name Breakdown (Item 3) -->
+                <div class="space-y-3 border-t border-amber-200/50 pt-4 dark:border-amber-900/50">
+                  <h5 class="text-xs font-extrabold uppercase tracking-wider text-amber-900 dark:text-amber-300">
+                    3. Father's Name (In case of individual)
+                  </h5>
+                  <div class="grid gap-3 sm:grid-cols-3">
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Father's First Name*</label>
+                      <input
+                        type="text"
+                        name="f60_fatherFirstName"
+                        required
+                        [(ngModel)]="formData.form60.fatherFirstName"
+                        class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        placeholder="Father Name"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Father's Middle Name</label>
+                      <input
+                        type="text"
+                        name="f60_fatherMiddleName"
+                        [(ngModel)]="formData.form60.fatherMiddleName"
+                        class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        placeholder="CHANDRA"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Father's Surname*</label>
+                      <input
+                        type="text"
+                        name="f60_fatherSurname"
+                        required
+                        [(ngModel)]="formData.form60.fatherSurname"
+                        class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        placeholder="SHARMA"
+                      />
+                    </div>
+                  </div>
                 </div>
+
+                <!-- 3. Address Details (Items 4 - 12) -->
+                <div class="space-y-3 border-t border-amber-200/50 pt-4 dark:border-amber-900/50">
+                  <h5 class="text-xs font-extrabold uppercase tracking-wider text-amber-900 dark:text-amber-300">
+                    4-12. Declarant Address Details
+                  </h5>
+                  <div class="grid gap-3 sm:grid-cols-3">
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">4. Flat / Room No.*</label>
+                      <input
+                        type="text"
+                        name="f60_flatRoomNo"
+                        required
+                        [(ngModel)]="formData.form60.flatRoomNo"
+                        class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        placeholder="Flat 402"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">5. Name of Premises</label>
+                      <input
+                        type="text"
+                        name="f60_premisesName"
+                        [(ngModel)]="formData.form60.premisesName"
+                        class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        placeholder="Green Heights"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">6. Block Name / No.</label>
+                      <input
+                        type="text"
+                        name="f60_blockNo"
+                        [(ngModel)]="formData.form60.blockNo"
+                        class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        placeholder="Block B"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">7. Road / Street / Lane*</label>
+                      <input
+                        type="text"
+                        name="f60_roadStreetLane"
+                        required
+                        [(ngModel)]="formData.form60.roadStreetLane"
+                        class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        placeholder="MG Road"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">8. Area / Locality*</label>
+                      <input
+                        type="text"
+                        name="f60_areaLocality"
+                        required
+                        [(ngModel)]="formData.form60.areaLocality"
+                        class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        placeholder="Bandra West"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="grid gap-3 sm:grid-cols-4">
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">9. Town / City*</label>
+                      <input
+                        type="text"
+                        name="f60_townCity"
+                        required
+                        [(ngModel)]="formData.form60.townCity"
+                        class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        placeholder="Mumbai"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">10. District*</label>
+                      <input
+                        type="text"
+                        name="f60_district"
+                        required
+                        [(ngModel)]="formData.form60.district"
+                        class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        placeholder="Mumbai Suburban"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">11. State*</label>
+                      <input
+                        type="text"
+                        name="f60_state"
+                        required
+                        [(ngModel)]="formData.form60.state"
+                        class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        placeholder="Maharashtra"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">12. Pin Code*</label>
+                      <input
+                        type="text"
+                        name="f60_pinCode"
+                        required
+                        [(ngModel)]="formData.form60.pinCode"
+                        class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        placeholder="400050"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 4. Contact Details (Items 13 - 15) -->
+                <div class="space-y-3 border-t border-amber-200/50 pt-4 dark:border-amber-900/50">
+                  <h5 class="text-xs font-extrabold uppercase tracking-wider text-amber-900 dark:text-amber-300">
+                    13-15. Contact Details
+                  </h5>
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">13-14. Telephone No. (With STD Code)</label>
+                      <input
+                        type="text"
+                        name="f60_telephoneStd"
+                        [(ngModel)]="formData.form60.telephoneStd"
+                        class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        placeholder="022-26543210"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">15. Mobile Number*</label>
+                      <input
+                        type="text"
+                        name="f60_mobileNumber"
+                        required
+                        [(ngModel)]="formData.form60.mobileNumber"
+                        class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        placeholder="9876543210"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 5. Transaction Details (Items 16 - 19) -->
+                <div class="space-y-3 border-t border-amber-200/50 pt-4 dark:border-amber-900/50">
+                  <h5 class="text-xs font-extrabold uppercase tracking-wider text-amber-900 dark:text-amber-300">
+                    16-19. Transaction Particulars
+                  </h5>
+                  <div class="grid gap-3 sm:grid-cols-3">
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">16. Amount of Transaction (Rs.)*</label>
+                      <input
+                        type="number"
+                        name="f60_transactionAmount"
+                        required
+                        [(ngModel)]="formData.form60.transactionAmount"
+                        class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        placeholder="50000"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">17. Date of Transaction*</label>
+                      <input
+                        type="date"
+                        name="f60_transactionDate"
+                        required
+                        [(ngModel)]="formData.form60.transactionDate"
+                        class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">18. Number of Joint Persons</label>
+                      <input
+                        type="number"
+                        name="f60_jointPersonsCount"
+                        min="1"
+                        [(ngModel)]="formData.form60.jointPersonsCount"
+                        class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        placeholder="1"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">19. Mode of Transaction*</label>
+                    <select
+                      name="f60_transactionMode"
+                      required
+                      [(ngModel)]="formData.form60.transactionMode"
+                      class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none bg-white dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                    >
+                      <option value="Cash">Cash</option>
+                      <option value="Cheque">Cheque</option>
+                      <option value="Card">Card</option>
+                      <option value="Draft/Banker's Cheque">Draft/Banker's Cheque</option>
+                      <option value="Online transfer">Online transfer</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- 6. Aadhaar & PAN Application Status (Items 20 - 21) -->
+                <div class="space-y-3 border-t border-amber-200/50 pt-4 dark:border-amber-900/50">
+                  <h5 class="text-xs font-extrabold uppercase tracking-wider text-amber-900 dark:text-amber-300">
+                    20-21. Aadhaar & Pending PAN Application Details
+                  </h5>
+                  <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">20. Aadhaar Number (Issued by UIDAI, 12 Digits)</label>
+                    <input
+                      type="text"
+                      name="f60_aadhaarNumber"
+                      maxlength="12"
+                      [(ngModel)]="formData.form60.aadhaarNumber"
+                      class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-mono tracking-wider text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                      placeholder="123456789012"
+                    />
+                  </div>
+
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">21a. PAN Application Date (If applied)</label>
+                      <input
+                        type="date"
+                        name="f60_panAppliedDate"
+                        [(ngModel)]="formData.form60.panAppliedDate"
+                        class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">21b. PAN Application Ack Number</label>
+                      <input
+                        type="text"
+                        name="f60_panAckNumber"
+                        [(ngModel)]="formData.form60.panAckNumber"
+                        class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        placeholder="N-123456789012345"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 7. Income Breakdown (Item 22) -->
+                <div class="space-y-3 border-t border-amber-200/50 pt-4 dark:border-amber-900/50">
+                  <h5 class="text-xs font-extrabold uppercase tracking-wider text-amber-900 dark:text-amber-300">
+                    22. Estimated Financial Year Income (Sec 64 Income-tax Act)
+                  </h5>
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">22a. Agricultural Income (Annual Rs.)*</label>
+                      <input
+                        type="number"
+                        name="f60_agriIncome"
+                        required
+                        [(ngModel)]="formData.form60.agriIncome"
+                        class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">22b. Non-Agricultural Income (Annual Rs.)*</label>
+                      <input
+                        type="number"
+                        name="f60_otherIncome"
+                        required
+                        [(ngModel)]="formData.form60.otherIncome"
+                        class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        placeholder="150000"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 8. Verification & Legal Declaration -->
+                <div class="space-y-3 border-t border-amber-200/50 pt-4 dark:border-amber-900/50">
+                  <h5 class="text-xs font-extrabold uppercase tracking-wider text-amber-900 dark:text-amber-300">
+                    Official Verification Declaration
+                  </h5>
+                  <div class="p-3 rounded-xl bg-amber-100/60 border border-amber-200 dark:bg-amber-950/40 dark:border-amber-900/50 text-[11px] leading-relaxed text-amber-950 dark:text-amber-200">
+                    I hereby declare that what is stated above is true to the best of my knowledge and belief. I further declare that I do not have a Permanent Account Number (PAN) and my estimated total income for the financial year is less than the maximum amount chargeable to tax.
+                  </div>
+
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Verification Place*</label>
+                      <input
+                        type="text"
+                        name="f60_verificationPlace"
+                        required
+                        [(ngModel)]="formData.form60.verificationPlace"
+                        class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                        placeholder="Mumbai"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">Verification Date*</label>
+                      <input
+                        type="date"
+                        name="f60_verificationDate"
+                        required
+                        [(ngModel)]="formData.form60.verificationDate"
+                        class="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+
               </div>
             </div>
 
@@ -699,9 +1067,35 @@ export class KycVerificationViewComponent implements OnInit {
     hasPan: true,
     panNumber: '',
     form60: {
+      firstName: '',
+      middleName: '',
+      surname: '',
+      dob: '',
+      fatherFirstName: '',
+      fatherMiddleName: '',
+      fatherSurname: '',
+      flatRoomNo: '',
+      premisesName: '',
+      blockNo: '',
+      roadStreetLane: '',
+      areaLocality: '',
+      townCity: '',
+      district: '',
+      state: '',
+      pinCode: '',
+      telephoneStd: '',
+      mobileNumber: '',
+      transactionAmount: 50000,
+      transactionDate: new Date().toISOString().split('T')[0],
+      jointPersonsCount: 1,
+      transactionMode: 'Online transfer',
+      aadhaarNumber: '',
+      panAppliedDate: '',
+      panAckNumber: '',
       agriIncome: 0,
       otherIncome: 150000,
-      reasonNoPan: 'Income below taxable threshold'
+      verificationPlace: 'Mumbai',
+      verificationDate: new Date().toISOString().split('T')[0]
     },
     documentType: 'Aadhar-card',
     documentNumber: ''
@@ -796,6 +1190,19 @@ export class KycVerificationViewComponent implements OnInit {
         this.error.set('Please provide a valid 10-character PAN Card number.');
         return;
       }
+    } else {
+      // Auto-sync Form 60 defaults from main form fields if blank
+      const parts = (this.formData.FullName || '').trim().split(' ');
+      if (!this.formData.form60.firstName && parts.length > 0) this.formData.form60.firstName = parts[0];
+      if (!this.formData.form60.surname && parts.length > 1) this.formData.form60.surname = parts[parts.length - 1];
+      if (!this.formData.form60.dob) this.formData.form60.dob = this.formData.dateOfBirth;
+      if (!this.formData.form60.flatRoomNo) this.formData.form60.flatRoomNo = this.formData.permanentAddress.street;
+      if (!this.formData.form60.roadStreetLane) this.formData.form60.roadStreetLane = this.formData.permanentAddress.street;
+      if (!this.formData.form60.areaLocality) this.formData.form60.areaLocality = this.formData.permanentAddress.city;
+      if (!this.formData.form60.townCity) this.formData.form60.townCity = this.formData.permanentAddress.city;
+      if (!this.formData.form60.district) this.formData.form60.district = this.formData.permanentAddress.city;
+      if (!this.formData.form60.state) this.formData.form60.state = this.formData.permanentAddress.state;
+      if (!this.formData.form60.pinCode) this.formData.form60.pinCode = this.formData.permanentAddress.postalCode;
     }
 
     if (!this.documentFile) {
