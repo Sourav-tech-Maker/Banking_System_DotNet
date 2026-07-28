@@ -235,7 +235,7 @@ namespace BankingSystem.Api.Services
                         fromAccount.AccountId,
                         toAccount.AccountId,
                         request.Amount,
-                        transfer.TransferReference,
+                        transfer.TransferId.ToString(),
                         now,
                         cancellationToken);
                 }
@@ -399,7 +399,7 @@ namespace BankingSystem.Api.Services
                         fromAccount.AccountId,
                         toAccount.AccountId,
                         request.Amount,
-                        transfer.TransferReference,
+                        transfer.TransferId.ToString(),
                         now,
                         cancellationToken);
                 }

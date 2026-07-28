@@ -17,7 +17,7 @@ import { ApiService } from '../../services/api.service';
           </div>
           <h2 class="mt-5 text-xl font-bold text-slate-950 dark:text-white">Bank Account Successfully Opened!</h2>
           <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
-            Your SBI Part-II Account & Services Application has been processed.
+            Your Yono Part-II Account & Services Application has been processed.
           </p>
 
           <div class="mt-6 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left text-sm dark:border-slate-800 dark:bg-slate-900">
@@ -57,7 +57,7 @@ import { ApiService } from '../../services/api.service';
         <div class="flex items-center justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
           <div>
             <div class="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
-              <span>🏛️ SBI Part-II Form</span>
+              <span>🏛️ Yono Part-II Form</span>
               <span>•</span>
               <span>Account & Services Application</span>
             </div>

@@ -32,9 +32,6 @@ namespace BankingSystem.Api.Controllers
             try
             {
                 var allApps = await context.KycApplications
-                    .Include(k => k.User)
-                    .Include(k => k.KycAddress)
-                    .Include(k => k.KycDocuments)
                     .AsNoTracking()
                     .OrderByDescending(k => k.SubmittedAtUtc)
                     .ToListAsync(cancellationToken);
@@ -52,42 +49,71 @@ namespace BankingSystem.Api.Controllers
                     .ThenByDescending(k => k.SubmittedAtUtc)
                     .ToList();
 
+                var appIds = applications.Select(a => a.KycApplicationId).Distinct().ToList();
+
+                var addressList = appIds.Count > 0
+                    ? await context.KycAddresses
+                        .AsNoTracking()
+                        .Where(a => appIds.Contains(a.KycApplicationId))
+                        .ToListAsync(cancellationToken)
+                    : new List<KycAddress>();
+
+                var addresses = addressList
+                    .GroupBy(a => a.KycApplicationId)
+                    .ToDictionary(g => g.Key, g => g.First());
+
+                var documentList = appIds.Count > 0
+                    ? await context.KycDocuments
+                        .AsNoTracking()
+                        .Where(d => appIds.Contains(d.KycApplicationId))
+                        .ToListAsync(cancellationToken)
+                    : new List<KycDocument>();
+
+                var documentsGrouped = documentList
+                    .GroupBy(d => d.KycApplicationId)
+                    .ToDictionary(g => g.Key, g => g.ToList());
+
                 var userIds = applications.Select(a => a.UserId).Distinct().ToList();
-                var userList = await context.Users
-                    .AsNoTracking()
-                    .Where(u => userIds.Contains(u.UserId))
-                    .ToListAsync(cancellationToken);
+                var userList = userIds.Count > 0
+                    ? await context.Users
+                        .AsNoTracking()
+                        .Where(u => userIds.Contains(u.UserId))
+                        .ToListAsync(cancellationToken)
+                    : new List<User>();
 
                 var users = userList
                     .GroupBy(u => u.UserId)
                     .ToDictionary(g => g.Key, g => g.First());
 
+
                 var responseList = applications.Select(k =>
                 {
-                    var user = k.User ?? users.GetValueOrDefault(k.UserId);
-                    var address = k.KycAddress;
+                    var user = users.GetValueOrDefault(k.UserId);
+                    var address = addresses.GetValueOrDefault(k.KycApplicationId);
+                    var docs = documentsGrouped.GetValueOrDefault(k.KycApplicationId) ?? new List<KycDocument>();
 
-                    var identityDoc = k.KycDocuments.FirstOrDefault(d =>
+
+                    var identityDoc = docs.FirstOrDefault(d =>
                         d.DocumentType != "PAN_CARD" &&
                         (string.IsNullOrEmpty(d.DocumentNumber) ||
                         (!d.DocumentNumber.StartsWith("PHOTO_") &&
                          !d.DocumentNumber.StartsWith("SIG_") &&
                          !d.DocumentNumber.StartsWith("FORM60_"))))
-                        ?? k.KycDocuments.FirstOrDefault();
+                        ?? docs.FirstOrDefault();
 
-                    var photoDoc = k.KycDocuments.FirstOrDefault(d =>
+                    var photoDoc = docs.FirstOrDefault(d =>
                         d.DocumentType == "PASSPORT" || d.DocumentType == "PHOTO" ||
                         (!string.IsNullOrEmpty(d.DocumentNumber) && d.DocumentNumber.StartsWith("PHOTO_")));
 
-                    var sigDoc = k.KycDocuments.FirstOrDefault(d =>
+                    var sigDoc = docs.FirstOrDefault(d =>
                         d.DocumentType == "SIGNATURE" || d.DocumentType == "SIG" ||
                         (!string.IsNullOrEmpty(d.DocumentNumber) && d.DocumentNumber.StartsWith("SIG_")));
 
-                    var panDoc = k.KycDocuments.FirstOrDefault(d =>
+                    var panDoc = docs.FirstOrDefault(d =>
                         d.DocumentType == "PAN_CARD" ||
                         (!string.IsNullOrEmpty(d.DocumentNumber) && d.DocumentNumber.StartsWith("FORM60_")));
 
-                    var docList = k.KycDocuments.Select(d => new
+                    var docList = docs.Select(d => new
                     {
                         id = d.KycDocumentId,
                         documentType = d.DocumentType ?? "IDENTITY_PROOF",
@@ -104,34 +130,34 @@ namespace BankingSystem.Api.Controllers
                         _id = k.KycApplicationId,
                         id = k.KycApplicationId,
                         userId = k.UserId,
-                        userName = user?.UserName ?? k.FullName,
-                        username = user?.UserName ?? k.FullName,
+                        userName = user?.UserName ?? k.FullName ?? "User",
+                        username = user?.UserName ?? k.FullName ?? "User",
                         email = user?.Email ?? string.Empty,
                         userIdData = userObj,
                         user = userObj,
-                        fullName = k.FullName,
-                        dateOfBirth = k.DateOfBirth.ToString("yyyy-MM-dd"),
-                        gender = k.Gender,
-                        status = k.KycStatus,
+                        fullName = k.FullName ?? string.Empty,
+                        dateOfBirth = k.DateOfBirth == default ? string.Empty : k.DateOfBirth.ToString("yyyy-MM-dd"),
+                        gender = k.Gender ?? string.Empty,
+                        status = k.KycStatus ?? "PENDING",
                         rejectionReason = k.RejectionReason,
                         rejectReason = k.RejectionReason,
                         submittedAt = k.SubmittedAtUtc != default ? k.SubmittedAtUtc : k.UpdatedAtUtc,
                         createdAt = k.SubmittedAtUtc != default ? k.SubmittedAtUtc : k.UpdatedAtUtc,
                         address = address != null ? new
                         {
-                            street = address.Street,
-                            city = address.City,
-                            state = address.StateOrProvince,
-                            country = address.Country,
-                            postalCode = address.PostalCode
+                            street = address.Street ?? string.Empty,
+                            city = address.City ?? string.Empty,
+                            state = address.StateOrProvince ?? string.Empty,
+                            country = address.Country ?? string.Empty,
+                            postalCode = address.PostalCode ?? string.Empty
                         } : null,
                         permanentAddress = address != null ? new
                         {
-                            street = address.Street,
-                            city = address.City,
-                            state = address.StateOrProvince,
-                            country = address.Country,
-                            postalCode = address.PostalCode
+                            street = address.Street ?? string.Empty,
+                            city = address.City ?? string.Empty,
+                            state = address.StateOrProvince ?? string.Empty,
+                            country = address.Country ?? string.Empty,
+                            postalCode = address.PostalCode ?? string.Empty
                         } : null,
                         documentType = identityDoc?.DocumentType ?? "IDENTITY_PROOF",
                         documentNumber = identityDoc?.DocumentNumber ?? "N/A",

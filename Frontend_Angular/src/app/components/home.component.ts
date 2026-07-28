@@ -294,8 +294,12 @@ import { SystemConsoleComponent } from './system-console/system-console.componen
             <svg lucideX class="size-5"></svg>
           </button>
 
-          <h2 class="text-lg font-bold text-slate-950 dark:text-white mb-1">Send Money</h2>
-          <p class="text-sm text-slate-500 mb-4">Transfer funds to another account</p>
+          <h2 class="text-lg font-bold text-slate-950 dark:text-white mb-1">
+            {{ sendStep() === 'form' ? 'Send Money' : 'Authorize Transfer' }}
+          </h2>
+          <p class="text-sm text-slate-500 mb-4">
+            {{ sendStep() === 'form' ? 'Transfer funds securely to another bank account' : 'Enter the 6-digit verification code sent to your email' }}
+          </p>
 
           <div *ngIf="sendError()" class="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
             {{ sendError() }}
@@ -304,7 +308,8 @@ import { SystemConsoleComponent } from './system-console/system-console.componen
             {{ sendSuccess() }}
           </div>
 
-          <form (submit)="handleSendMoney($event)" class="space-y-4">
+          <!-- STEP 1: TRANSFER DETAILS FORM -->
+          <form *ngIf="sendStep() === 'form'" (submit)="handleSendMoney($event)" class="space-y-4">
             <!-- Source Account -->
             <div>
               <label for="fromAcc" class="block text-sm font-medium text-slate-700 dark:text-slate-300">From Account</label>
@@ -357,12 +362,62 @@ import { SystemConsoleComponent } from './system-console/system-console.componen
                 [disabled]="modalLoading() || sendForm.amount <= 0 || !sendForm.fromAccount || !sendForm.toAccount"
                 class="w-full rounded-lg bg-indigo-600 py-2.5 text-white font-semibold shadow-sm hover:bg-indigo-700 disabled:opacity-50"
               >
-                {{ modalLoading() ? 'Processing...' : 'Transfer Funds' }}
+                {{ modalLoading() ? 'Sending OTP Code...' : 'Generate OTP & Continue' }}
               </button>
             </div>
           </form>
+
+          <!-- STEP 2: OTP VERIFICATION -->
+          <div *ngIf="sendStep() === 'otp'" class="space-y-5">
+            <div class="rounded-xl border border-sky-100 bg-sky-50/70 p-4 text-center dark:border-sky-900/50 dark:bg-sky-950/40">
+              <div class="mx-auto flex size-12 items-center justify-center rounded-full bg-sky-100 text-sky-600 dark:bg-sky-900 dark:text-sky-300">
+                <svg lucideLock class="size-6"></svg>
+              </div>
+              <h3 class="mt-2 text-base font-bold text-slate-900 dark:text-white">Enter OTP Code</h3>
+              <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                We sent a 6-digit OTP code to <span class="font-semibold text-slate-900 dark:text-white">{{ maskedEmail() }}</span>
+              </p>
+              <div class="mt-2 inline-flex items-center gap-1.5 rounded-full bg-sky-200/60 px-3 py-1 text-xs font-semibold text-sky-800 dark:bg-sky-900/80 dark:text-sky-200">
+                <svg lucideClock class="size-3.5"></svg>
+                Expires in: {{ formatTimer(otpTimer()) }}
+              </div>
+            </div>
+
+            <div>
+              <label for="otpInput" class="block text-center text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">6-Digit OTP</label>
+              <input
+                id="otpInput"
+                type="text"
+                maxlength="6"
+                required
+                pattern="[0-9]{6}"
+                [(ngModel)]="otpCode"
+                class="mt-2 block w-full rounded-xl border border-slate-300 bg-slate-50 py-3 text-center text-2xl font-bold tracking-[10px] text-slate-900 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-indigo-400"
+                placeholder="000000"
+              />
+            </div>
+
+            <div class="flex items-center justify-between text-xs">
+              <button type="button" (click)="sendStep.set('form')" class="font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
+                ← Edit Transfer
+              </button>
+              <button type="button" (click)="handleResendOtp()" [disabled]="modalLoading() || otpTimer() > 240" class="font-semibold text-indigo-600 hover:underline disabled:opacity-50 dark:text-indigo-400">
+                Resend OTP
+              </button>
+            </div>
+
+            <button
+              type="button"
+              (click)="handleConfirmOtp()"
+              [disabled]="modalLoading() || !otpCode() || otpCode().length !== 6"
+              class="w-full rounded-xl bg-indigo-600 py-3 font-bold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 disabled:opacity-50 dark:bg-indigo-500 dark:hover:bg-indigo-600"
+            >
+              {{ modalLoading() ? 'Verifying OTP...' : 'Verify OTP & Complete Transfer' }}
+            </button>
+          </div>
         </div>
       </div>
+
     </div>
   `
 })
@@ -384,6 +439,13 @@ export class HomeComponent implements OnInit {
   protected userAccounts = signal<any[]>([]);
   protected sendError = signal('');
   protected sendSuccess = signal('');
+
+  protected sendStep = signal<'form' | 'otp'>('form');
+  protected otpSessionId = signal('');
+  protected maskedEmail = signal('');
+  protected otpCode = signal('');
+  protected otpTimer = signal(300);
+  private timerInterval: any = null;
 
   protected sendForm = {
     fromAccount: '',
@@ -473,12 +535,17 @@ export class HomeComponent implements OnInit {
   }
 
   protected openSendMoneyModal() {
+    this.sendStep.set('form');
+    this.otpSessionId.set('');
+    this.maskedEmail.set('');
+    this.otpCode.set('');
     this.sendForm.fromAccount = '';
     this.sendForm.toAccount = '';
     this.sendForm.amount = 0;
     this.sendError.set('');
     this.sendSuccess.set('');
     this.userAccounts.set([]);
+    this.stopOtpTimer();
     this.showSendModal.set(true);
 
     // Fetch user accounts
@@ -486,7 +553,7 @@ export class HomeComponent implements OnInit {
       next: (res) => {
         this.userAccounts.set(res.accounts || []);
       },
-      error: (err) => {
+      error: () => {
         this.sendError.set('Failed to fetch source accounts');
       }
     });
@@ -512,7 +579,7 @@ export class HomeComponent implements OnInit {
 
     const idempotencyKey = `transfer-${this.sendForm.fromAccount}-${crypto.randomUUID()}`;
 
-    this.apiService.createTransaction({
+    this.apiService.initiateTransfer({
       fromAccount: this.sendForm.fromAccount,
       toAccount: this.sendForm.toAccount,
       amount: this.sendForm.amount,
@@ -520,7 +587,33 @@ export class HomeComponent implements OnInit {
     }).subscribe({
       next: (res) => {
         this.modalLoading.set(false);
-        this.sendSuccess.set(res.message || 'Transfer completed successfully!');
+        this.otpSessionId.set(res.sessionId);
+        this.maskedEmail.set(res.maskedEmail);
+        this.sendStep.set('otp');
+        this.startOtpTimer();
+      },
+      error: (err) => {
+        this.modalLoading.set(false);
+        this.sendError.set(err.error?.message || 'Transfer initiation failed. Check details and balance.');
+      }
+    });
+  }
+
+  protected handleConfirmOtp() {
+    if (!this.otpCode() || this.otpCode().length !== 6) return;
+
+    this.modalLoading.set(true);
+    this.sendError.set('');
+    this.sendSuccess.set('');
+
+    this.apiService.confirmTransferWithOtp({
+      sessionId: this.otpSessionId(),
+      otpCode: this.otpCode().trim()
+    }).subscribe({
+      next: (res) => {
+        this.modalLoading.set(false);
+        this.stopOtpTimer();
+        this.sendSuccess.set(res.message || 'Transaction processed successfully!');
         this.fetchDashboardData();
         setTimeout(() => {
           this.showSendModal.set(false);
@@ -528,9 +621,55 @@ export class HomeComponent implements OnInit {
       },
       error: (err) => {
         this.modalLoading.set(false);
-        this.sendError.set(err.error?.message || 'Transfer failed. Check details and balance.');
+        this.sendError.set(err.error?.message || 'OTP verification failed. Please try again.');
       }
     });
+  }
+
+  protected handleResendOtp() {
+    if (!this.otpSessionId()) return;
+
+    this.modalLoading.set(true);
+    this.sendError.set('');
+
+    this.apiService.resendTransferOtp({
+      sessionId: this.otpSessionId()
+    }).subscribe({
+      next: (res) => {
+        this.modalLoading.set(false);
+        this.sendSuccess.set(res.message || 'New OTP sent to your email');
+        this.startOtpTimer();
+      },
+      error: (err) => {
+        this.modalLoading.set(false);
+        this.sendError.set(err.error?.message || 'Failed to resend OTP.');
+      }
+    });
+  }
+
+  protected formatTimer(seconds: number): string {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  private startOtpTimer() {
+    this.stopOtpTimer();
+    this.otpTimer.set(300);
+    this.timerInterval = setInterval(() => {
+      if (this.otpTimer() > 0) {
+        this.otpTimer.update((val) => val - 1);
+      } else {
+        this.stopOtpTimer();
+      }
+    }, 1000);
+  }
+
+  private stopOtpTimer() {
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+    }
   }
 
   // Theme support
@@ -556,4 +695,5 @@ export class HomeComponent implements OnInit {
     document.documentElement.classList.toggle('dark', dark);
   }
 }
+
 

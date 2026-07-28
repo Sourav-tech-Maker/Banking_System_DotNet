@@ -24,7 +24,7 @@ import { ApiService } from '../../services/api.service';
           <div class="flex items-center justify-between border-b border-slate-100 pb-5 dark:border-slate-800">
             <div>
               <div class="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">
-                <span>🏛️ SBI Part-I Form</span>
+                <span>🏛️ Yono Part-I Form</span>
                 <span>•</span>
                 <span>Customer Information Sheet (CIF Creation)</span>
               </div>
@@ -543,7 +543,7 @@ import { ApiService } from '../../services/api.service';
                 </h2>
                 
                 <p class="mt-1.5 text-sm text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed">
-                  {{ kycStatus() === 'PENDING' ? 'Your SBI Part-I Customer Information Sheet (CIF) documents are safely stored and being reviewed by our compliance officers.' :
+                  {{ kycStatus() === 'PENDING' ? 'Your  Part-I Customer Information Sheet (CIF) documents are safely stored and being reviewed by our compliance officers.' :
                      kycStatus() === 'APPROVED' ? 'Congratulations! Your identity has been verified in compliance with banking regulations. You can now open savings or current accounts.' :
                      'Your previous KYC application was rejected by compliance auditors.' }}
                 </p>

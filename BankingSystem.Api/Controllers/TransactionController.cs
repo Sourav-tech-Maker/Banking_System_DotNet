@@ -19,12 +19,124 @@ namespace BankingSystem.Api.Controllers
     [Authorize]
     [ApiController]
     [Route("api/[controller]")]
-    public sealed class TransactionController(AppDbContext context) : ControllerBase
+    public sealed class TransactionController(AppDbContext context, ITransferOtpService transferOtpService) : ControllerBase
     {
+        [HttpPost("initiate-transfer")]
+        public async Task<IActionResult> InitiateTransfer(
+            [FromBody] InitiateTransferRequest request,
+            CancellationToken cancellationToken)
+        {
+            var userIdClaim = User.FindFirst("userid")?.Value;
+            if (userIdClaim == null || !Guid.TryParse(userIdClaim, out var userId))
+            {
+                return Unauthorized(new { message = "Unauthorized access" });
+            }
+
+            var response = await transferOtpService.InitiateTransferOtpAsync(userId, request, cancellationToken);
+            return Ok(response);
+        }
+
+        [HttpPost("confirm-transfer")]
+        public async Task<IActionResult> ConfirmTransfer(
+            [FromBody] ConfirmTransferRequest request,
+            CancellationToken cancellationToken)
+        {
+            var userIdClaim = User.FindFirst("userid")?.Value;
+            if (userIdClaim == null || !Guid.TryParse(userIdClaim, out var userId))
+            {
+                return Unauthorized(new { message = "Unauthorized access" });
+            }
+
+            var session = await transferOtpService.VerifyAndConsumeOtpAsync(userId, request, cancellationToken);
+
+            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+            var userAgent = Request.Headers.UserAgent.ToString();
+
+            try
+            {
+                var fromAccountIdParam = new SqlParameter("@FromAccountId", session.FromAccountId);
+                var toAccountIdParam = new SqlParameter("@ToAccountId", session.ToAccountId);
+                var amountParam = new SqlParameter("@Amount", session.Amount);
+                var idempotencyKeyParam = new SqlParameter("@IdempotencyKey", session.IdempotencyKey);
+                var initiatedByParam = new SqlParameter("@InitiatedByUserId", userId);
+                var paymentMethodParam = new SqlParameter("@PaymentMethod", "NET_BANKING");
+                var categoryParam = new SqlParameter("@Category", "PEER_TO_PEER");
+                var clientIpParam = new SqlParameter("@ClientIpAddress", ipAddress);
+                var userAgentParam = new SqlParameter("@UserAgent", userAgent);
+
+                var transferIdParam = new SqlParameter("@TransferId", SqlDbType.UniqueIdentifier)
+                {
+                    Direction = ParameterDirection.Output
+                };
+
+                await context.Database.ExecuteSqlRawAsync(
+                    "DECLARE @TId UNIQUEIDENTIFIER; EXEC [Banking].[usp_PostCustomerTransfer] @FromAccountId, @ToAccountId, @Amount, @IdempotencyKey, @InitiatedByUserId, @PaymentMethod, @Category, NULL, @ClientIpAddress, @UserAgent, @TId OUTPUT; SET @TransferId = @TId;",
+                    fromAccountIdParam, toAccountIdParam, amountParam, idempotencyKeyParam, initiatedByParam, paymentMethodParam, categoryParam, clientIpParam, userAgentParam, transferIdParam);
+
+                var generatedId = (Guid)transferIdParam.Value;
+
+                var completedTransfer = await context.Transfers
+                    .FirstOrDefaultAsync(t => t.TransferId == generatedId, cancellationToken);
+
+                if (completedTransfer != null)
+                {
+                    try
+                    {
+                        await TransferEmailHelper.QueueTransferNotificationsAsync(
+                            context,
+                            completedTransfer.FromAccountId,
+                            completedTransfer.ToAccountId,
+                            completedTransfer.Amount,
+                            completedTransfer.TransferId.ToString(),
+                            completedTransfer.CompletedAtUtc ?? DateTime.UtcNow,
+                            cancellationToken);
+                    }
+                    catch
+                    {
+                        // Ignore notification errors to preserve core transfer result
+                    }
+                }
+
+                return Ok(new
+                {
+                    message = "Transaction processed successfully",
+                    transaction = MapTransferResponse(completedTransfer!)
+                });
+            }
+            catch (SqlException ex) when (ex.Number is >= 51000 and <= 51036)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    message = "Transaction processing failed",
+                    error = ex.Message
+                });
+            }
+        }
+
+        [HttpPost("resend-otp")]
+        public async Task<IActionResult> ResendTransferOtp(
+            [FromBody] ResendTransferOtpRequest request,
+            CancellationToken cancellationToken)
+        {
+            var userIdClaim = User.FindFirst("userid")?.Value;
+            if (userIdClaim == null || !Guid.TryParse(userIdClaim, out var userId))
+            {
+                return Unauthorized(new { message = "Unauthorized access" });
+            }
+
+            var response = await transferOtpService.ResendOtpAsync(userId, request, cancellationToken);
+            return Ok(response);
+        }
+
         [HttpPost]
         public async Task<IActionResult> CreateTransaction(
             [FromBody] CreateTransactionRequest request,
             CancellationToken cancellationToken)
+
         {
             if (request == null ||
                 request.FromAccount == Guid.Empty ||
@@ -110,7 +222,7 @@ namespace BankingSystem.Api.Controllers
                             completedTransfer.FromAccountId,
                             completedTransfer.ToAccountId,
                             completedTransfer.Amount,
-                            completedTransfer.TransferReference ?? completedTransfer.TransferId.ToString("N"),
+                            completedTransfer.TransferId.ToString(),
                             completedTransfer.CompletedAtUtc ?? DateTime.UtcNow,
                             cancellationToken);
                     }

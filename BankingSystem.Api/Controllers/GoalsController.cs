@@ -45,27 +45,30 @@ namespace BankingSystem.Api.Controllers
                 return BadRequest(new { message = "Target date must be in the future." });
             }
 
+            var trimmedTitle = request.Title.Trim();
+
             // Check if goal with title exists for user
             var titleExists = await context.SavingsGoals
-                .AnyAsync(g => g.UserId == userId && g.Title == request.Title && !g.IsArchived, cancellationToken);
+                .AnyAsync(g => g.UserId == userId && g.Title == trimmedTitle && !g.IsArchived, cancellationToken);
 
             if (titleExists)
             {
-                return Conflict(new { message = "Goal with this title already exists." });
+                return Conflict(new { message = $"A savings goal titled '{trimmedTitle}' already exists. Please enter a unique title." });
             }
 
             var goal = new SavingsGoal
             {
                 SavingsGoalId = Guid.NewGuid(),
                 UserId = userId,
-                Title = request.Title,
-                Category = request.Category,
+                Title = trimmedTitle,
+                Category = request.Category.Trim(),
                 TargetAmount = request.TargetAmount,
                 TargetDateUtc = request.TargetDate.ToUniversalTime(),
                 IsArchived = false,
                 CreatedAtUtc = now,
                 UpdatedAtUtc = now
             };
+
 
             context.SavingsGoals.Add(goal);
 
@@ -106,11 +109,12 @@ namespace BankingSystem.Api.Controllers
                 return Unauthorized(new { message = "Unauthorized access" });
             }
 
-            // Read from view
+            // Read from view, excluding archived/deleted goals
             var progressList = await context.SavingsGoalProgressViews
                 .AsNoTracking()
-                .Where(v => v.UserId == userId)
+                .Where(v => v.UserId == userId && v.GoalStatus != "ARCHIVED")
                 .ToListAsync(cancellationToken);
+
 
             var mappedList = progressList.Select(MapProgressView).ToList();
 
@@ -229,20 +233,16 @@ namespace BankingSystem.Api.Controllers
             }
 
             var goal = await context.SavingsGoals
-                .FirstOrDefaultAsync(g => g.SavingsGoalId == goalId && g.UserId == userId, cancellationToken);
+                .FirstOrDefaultAsync(g => g.SavingsGoalId == goalId && g.UserId == userId && !g.IsArchived, cancellationToken);
 
             if (goal == null)
             {
                 return NotFound(new { message = "Goal not found." });
             }
 
-            // Delete associated contributions first
-            var contributions = await context.SavingsContributions
-                .Where(c => c.SavingsGoalId == goalId)
-                .ToListAsync(cancellationToken);
-            context.SavingsContributions.RemoveRange(contributions);
-
-            context.SavingsGoals.Remove(goal);
+            // Soft-delete goal to preserve immutable contribution audit records
+            goal.IsArchived = true;
+            goal.UpdatedAtUtc = timeProvider.GetUtcNow().UtcDateTime;
             await context.SaveChangesAsync(cancellationToken);
 
             return Ok(new
@@ -252,24 +252,45 @@ namespace BankingSystem.Api.Controllers
             });
         }
 
-        private static dynamic MapProgressView(SavingsGoalProgressView v)
+
+        private static dynamic MapProgressView(SavingsGoalProgressView? v)
         {
+            if (v == null)
+            {
+                return new
+                {
+                    _id = Guid.Empty,
+                    id = Guid.Empty,
+                    title = "",
+                    category = "",
+                    targetAmount = 0m,
+                    currentAmount = 0m,
+                    remainingAmount = 0m,
+                    progressPercentage = 0m,
+                    status = "active",
+                    targetDate = DateTime.UtcNow,
+                    createdAt = DateTime.UtcNow,
+                    updatedAt = DateTime.UtcNow
+                };
+            }
+
             return new
             {
                 _id = v.SavingsGoalId, // Match MongoDB format
                 id = v.SavingsGoalId,
                 userId = v.UserId,
-                title = v.Title,
-                category = v.Category,
+                title = v.Title ?? "",
+                category = v.Category ?? "",
                 targetAmount = v.TargetAmount,
                 currentAmount = v.CurrentAmount,
                 remainingAmount = v.RemainingAmount,
                 progressPercentage = v.ProgressPercentage,
-                status = v.GoalStatus.ToLowerInvariant(),
+                status = (v.GoalStatus ?? "ACTIVE").ToLowerInvariant(),
                 targetDate = v.TargetDateUtc,
                 createdAt = v.CreatedAtUtc,
                 updatedAt = v.UpdatedAtUtc
             };
         }
+
     }
 }

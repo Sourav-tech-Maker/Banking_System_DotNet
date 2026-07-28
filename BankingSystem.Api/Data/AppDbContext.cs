@@ -28,6 +28,7 @@ namespace BankingSystem.Api.Data
         public DbSet<Transfer> Transfers => Set<Transfer>();
         public DbSet<LedgerEntry> LedgerEntries => Set<LedgerEntry>();
         public DbSet<Beneficiary> Beneficiaries => Set<Beneficiary>();
+        public DbSet<TransferOtpSession> TransferOtpSessions => Set<TransferOtpSession>();
 
         // Savings
         public DbSet<SavingsGoal> SavingsGoals => Set<SavingsGoal>();
@@ -413,6 +414,23 @@ namespace BankingSystem.Api.Data
                     .OnDelete(DeleteBehavior.NoAction);
 
                 entity.HasIndex(b => new { b.OwnerUserId, b.BeneficiaryAccountId }).IsUnique();
+            });
+
+            modelBuilder.Entity<TransferOtpSession>(entity =>
+            {
+                entity.ToTable("TransferOtpSessions", "Banking");
+                entity.HasKey(s => s.SessionId);
+                entity.Property(s => s.SessionId)
+                    .HasDefaultValueSql("NEWSEQUENTIALID()")
+                    .ValueGeneratedOnAdd();
+                entity.Property(s => s.IdempotencyKey).HasMaxLength(100).IsRequired();
+                entity.Property(s => s.Amount).HasColumnType("decimal(19,4)").IsRequired();
+                entity.Property(s => s.CodeHash).HasColumnType("binary(32)").IsRequired();
+                entity.Property(s => s.AttemptCount).HasDefaultValue(0);
+                entity.Property(s => s.MaxAttempts).HasDefaultValue(3);
+                entity.Property(s => s.ExpiresAtUtc).HasColumnType("datetime2(3)");
+                entity.Property(s => s.IsConsumed).HasDefaultValue(false);
+                entity.Property(s => s.CreatedAtUtc).HasColumnType("datetime2(3)").HasDefaultValueSql("SYSUTCDATETIME()");
             });
 
             // Savings Schema mappings

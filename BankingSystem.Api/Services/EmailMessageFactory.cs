@@ -15,6 +15,7 @@ internal static class EmailMessageFactory
         {
             "EmailVerificationRequested" => CreateOtpEmail(payloadJson, now, isBeneficiary: false),
             "BeneficiaryVerificationRequested" => CreateOtpEmail(payloadJson, now, isBeneficiary: true),
+            "TransferOtpRequested" => CreateTransferOtpEmail(payloadJson, now),
             "RegistrationWelcomeRequested" => CreateWelcomeEmail(payloadJson),
             "NewDeviceLoginDetected" => CreateNewDeviceEmail(payloadJson),
             "KycStatusUpdated" => CreateKycEmail(payloadJson),
@@ -84,6 +85,59 @@ internal static class EmailMessageFactory
             isBeneficiary ? "Verify Your Beneficiary" : "Verify Your Email",
             text,
             html);
+    }
+
+    private static EmailMessage? CreateTransferOtpEmail(string payloadJson, DateTime now)
+    {
+        var payload = Deserialize<TransferOtpPayload>(payloadJson);
+        if (payload.ExpiresAtUtc <= now)
+        {
+            return null;
+        }
+
+        var encodedName = WebUtility.HtmlEncode(payload.Username);
+        var encodedRecipient = WebUtility.HtmlEncode(payload.RecipientName ?? "Beneficiary");
+        var encodedCode = WebUtility.HtmlEncode(payload.OtpCode);
+        var formattedAmount = payload.Amount.ToString("N2");
+
+        var text = $$"""
+            Hello {{payload.Username}},
+
+            Your OTP to authorize fund transfer of ₹{{formattedAmount}} to {{payload.RecipientName}} is: {{payload.OtpCode}}
+
+            This code is valid for 5 minutes. Never share this OTP with anyone.
+
+            If you did not initiate this transaction, please contact bank support immediately.
+            """;
+
+        var html = $$"""
+            <!doctype html>
+            <html lang="en">
+            <body style="margin:0;padding:0;background:#f4f4f7;font-family:Segoe UI,Arial,sans-serif;color:#1f2937">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:40px 16px;background:#f4f4f7">
+                <tr><td align="center">
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08)">
+                    <tr><td style="padding:28px 36px;text-align:center;background:#0284c7;color:#fff">
+                      <h1 style="margin:0;font-size:24px">Authorize Money Transfer</h1>
+                    </td></tr>
+                    <tr><td style="padding:36px">
+                      <p style="margin-top:0">Hello <strong>{{encodedName}}</strong>,</p>
+                      <p>You requested a transfer of <strong style="color:#0284c7;font-size:18px">₹{{formattedAmount}}</strong> to <strong>{{encodedRecipient}}</strong>.</p>
+                      <p>Use the following OTP code to authorize and complete this transaction. It expires in <strong>5 minutes</strong>.</p>
+                      <div style="margin:28px 0;padding:20px;text-align:center;border:2px dashed #0284c7;border-radius:12px;background:#f0f9ff">
+                        <span style="font-size:36px;font-weight:800;letter-spacing:10px;color:#0369a1">{{encodedCode}}</span>
+                      </div>
+                      <p style="font-size:14px;color:#6b7280">Never share this OTP with anyone. If you did not initiate this transfer, secure your account immediately.</p>
+                    </td></tr>
+                    <tr><td style="padding:18px;text-align:center;background:#f8fafc;font-size:12px;color:#6b7280">This is an automated message. Please do not reply.</td></tr>
+                  </table>
+                </td></tr>
+              </table>
+            </body>
+            </html>
+            """;
+
+        return new EmailMessage(payload.To, "OTP for Fund Transfer Authorization", text, html);
     }
 
     private static EmailMessage CreateWelcomeEmail(string payloadJson)
@@ -222,7 +276,7 @@ internal static class EmailMessageFactory
             Transferred To: {{payload.RecipientAccount}} ({{payload.RecipientName}})
             Amount Debited: ₹{{formattedAmount}}
             Updated Balance: ₹{{formattedBalance}}
-            Reference No: {{payload.TransactionRef}}
+            Transaction ID: {{payload.TransactionRef}}
             Date & Time: {{formattedDate}}
 
             Regards,
@@ -243,7 +297,7 @@ internal static class EmailMessageFactory
                   <tr><td style="padding:10px 14px;color:#64748b;border-bottom:1px solid #e2e8f0">Transferred To</td><td style="padding:10px 14px;font-weight:600;text-align:right;border-bottom:1px solid #e2e8f0">#{{encodedRecipientAcc}} ({{encodedRecipientName}})</td></tr>
                   <tr><td style="padding:10px 14px;color:#64748b;border-bottom:1px solid #e2e8f0">Amount Debited</td><td style="padding:10px 14px;font-weight:700;color:#dc2626;text-align:right;border-bottom:1px solid #e2e8f0">₹{{formattedAmount}}</td></tr>
                   <tr><td style="padding:10px 14px;color:#64748b;border-bottom:1px solid #e2e8f0">Available Balance</td><td style="padding:10px 14px;font-weight:700;color:#0f172a;text-align:right;border-bottom:1px solid #e2e8f0">₹{{formattedBalance}}</td></tr>
-                  <tr><td style="padding:10px 14px;color:#64748b;border-bottom:1px solid #e2e8f0">Transaction Ref</td><td style="padding:10px 14px;font-family:monospace;text-align:right;border-bottom:1px solid #e2e8f0">{{encodedRef}}</td></tr>
+                  <tr><td style="padding:10px 14px;color:#64748b;border-bottom:1px solid #e2e8f0">Transaction ID</td><td style="padding:10px 14px;font-family:monospace;text-align:right;border-bottom:1px solid #e2e8f0">{{encodedRef}}</td></tr>
                   <tr><td style="padding:10px 14px;color:#64748b">Date &amp; Time</td><td style="padding:10px 14px;text-align:right">{{formattedDate}}</td></tr>
                 </table>
 
@@ -282,7 +336,7 @@ internal static class EmailMessageFactory
             Received From: {{payload.SenderAccount}} ({{payload.SenderName}})
             Amount Credited: ₹{{formattedAmount}}
             Updated Balance: ₹{{formattedBalance}}
-            Reference No: {{payload.TransactionRef}}
+            Transaction ID: {{payload.TransactionRef}}
             Date & Time: {{formattedDate}}
 
             Regards,
@@ -303,7 +357,7 @@ internal static class EmailMessageFactory
                   <tr><td style="padding:10px 14px;color:#64748b;border-bottom:1px solid #e2e8f0">Received From</td><td style="padding:10px 14px;font-weight:600;text-align:right;border-bottom:1px solid #e2e8f0">#{{encodedSenderAcc}} ({{encodedSenderName}})</td></tr>
                   <tr><td style="padding:10px 14px;color:#64748b;border-bottom:1px solid #e2e8f0">Amount Credited</td><td style="padding:10px 14px;font-weight:700;color:#16a34a;text-align:right;border-bottom:1px solid #e2e8f0">₹{{formattedAmount}}</td></tr>
                   <tr><td style="padding:10px 14px;color:#64748b;border-bottom:1px solid #e2e8f0">Available Balance</td><td style="padding:10px 14px;font-weight:700;color:#0f172a;text-align:right;border-bottom:1px solid #e2e8f0">₹{{formattedBalance}}</td></tr>
-                  <tr><td style="padding:10px 14px;color:#64748b;border-bottom:1px solid #e2e8f0">Transaction Ref</td><td style="padding:10px 14px;font-family:monospace;text-align:right;border-bottom:1px solid #e2e8f0">{{encodedRef}}</td></tr>
+                  <tr><td style="padding:10px 14px;color:#64748b;border-bottom:1px solid #e2e8f0">Transaction ID</td><td style="padding:10px 14px;font-family:monospace;text-align:right;border-bottom:1px solid #e2e8f0">{{encodedRef}}</td></tr>
                   <tr><td style="padding:10px 14px;color:#64748b">Date &amp; Time</td><td style="padding:10px 14px;text-align:right">{{formattedDate}}</td></tr>
                 </table>
               </div>
@@ -365,4 +419,13 @@ internal static class EmailMessageFactory
         string TransactionRef,
         decimal CurrentBalance,
         DateTime OccurredAtUtc);
+
+    private sealed record TransferOtpPayload(
+        string To,
+        string Username,
+        string? RecipientName,
+        decimal Amount,
+        string OtpCode,
+        DateTime ExpiresAtUtc);
 }
+

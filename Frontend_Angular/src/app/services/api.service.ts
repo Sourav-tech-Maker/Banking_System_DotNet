@@ -92,6 +92,18 @@ export class ApiService {
   }
 
   // --- Transactions / Transfers ---
+  initiateTransfer(body: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/api/transaction/initiate-transfer`, body, this.getOptions());
+  }
+
+  confirmTransferWithOtp(body: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/api/transaction/confirm-transfer`, body, this.getOptions());
+  }
+
+  resendTransferOtp(body: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/api/transaction/resend-otp`, body, this.getOptions());
+  }
+
   createTransaction(body: any): Observable<any> {
     return this.http.post(`${this.baseUrl}/api/transaction`, body, this.getOptions());
   }

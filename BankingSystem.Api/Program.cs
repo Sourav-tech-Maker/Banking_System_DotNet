@@ -234,6 +234,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ISystemUserService, SystemUserService>();
 builder.Services.AddScoped<IImageKitService, ImageKitService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<ITransferOtpService, TransferOtpService>();
 builder.Services.Configure<ImageKitOptions>(builder.Configuration.GetSection(ImageKitOptions.SectionName));
 
 var app = builder.Build();
@@ -301,12 +302,34 @@ using (var scope = app.Services.CreateScope())
             await dbContext.SaveChangesAsync();
             app.Logger.LogInformation("Seeded default authentication roles: {Roles}", string.Join(", ", missing.Select(m => m.Name)));
         }
+
+        // Ensure Banking.TransferOtpSessions table exists
+        await dbContext.Database.ExecuteSqlRawAsync(@"
+            IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'TransferOtpSessions' AND schema_id = SCHEMA_ID('Banking'))
+            BEGIN
+                CREATE TABLE [Banking].[TransferOtpSessions] (
+                    [SessionId] UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWSEQUENTIALID(),
+                    [UserId] UNIQUEIDENTIFIER NOT NULL,
+                    [FromAccountId] UNIQUEIDENTIFIER NOT NULL,
+                    [ToAccountId] UNIQUEIDENTIFIER NOT NULL,
+                    [Amount] DECIMAL(19,4) NOT NULL,
+                    [IdempotencyKey] NVARCHAR(100) NOT NULL,
+                    [CodeHash] BINARY(32) NOT NULL,
+                    [AttemptCount] INT NOT NULL DEFAULT 0,
+                    [MaxAttempts] INT NOT NULL DEFAULT 3,
+                    [ExpiresAtUtc] DATETIME2(3) NOT NULL,
+                    [IsConsumed] BIT NOT NULL DEFAULT 0,
+                    [CreatedAtUtc] DATETIME2(3) NOT NULL DEFAULT SYSUTCDATETIME()
+                );
+            END
+        ");
     }
     catch (Exception ex)
     {
-        app.Logger.LogWarning(ex, "Could not automatically seed authentication roles on startup.");
+        app.Logger.LogWarning(ex, "Could not automatically seed authentication roles or create TransferOtpSessions table on startup.");
     }
 }
+
 
 app.Run();
 
