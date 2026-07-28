@@ -364,7 +364,7 @@ namespace BankingSystem.Api.Data
 
             modelBuilder.Entity<LedgerEntry>(entity =>
             {
-                entity.ToTable("LedgerEntries", "Banking");
+                entity.ToTable("LedgerEntries", "Banking", tb => tb.HasTrigger("TR_LedgerEntries_ValidateInsert"));
                 entity.HasKey(l => l.LedgerEntryId);
                 entity.Property(l => l.LegacyObjectId).HasColumnType("char(24)");
                 entity.Property(l => l.EntrySequence).IsRequired();
@@ -418,7 +418,7 @@ namespace BankingSystem.Api.Data
             // Savings Schema mappings
             modelBuilder.Entity<SavingsGoal>(entity =>
             {
-                entity.ToTable("SavingsGoals", "Savings");
+                entity.ToTable("SavingsGoals", "Savings", tb => tb.HasTrigger("TR_Goals_UpdateStatus"));
                 entity.HasKey(g => g.SavingsGoalId);
                 entity.Property(g => g.SavingsGoalId)
                     .HasDefaultValueSql("NEWSEQUENTIALID()")
@@ -443,7 +443,7 @@ namespace BankingSystem.Api.Data
 
             modelBuilder.Entity<SavingsContribution>(entity =>
             {
-                entity.ToTable("SavingsContributions", "Savings");
+                entity.ToTable("SavingsContributions", "Savings", tb => tb.HasTrigger("TR_SavingsContributions_Immutable"));
                 entity.HasKey(c => c.SavingsContributionId);
                 entity.Property(c => c.LegacyObjectId).HasColumnType("char(24)");
                 entity.Property(c => c.Amount).HasColumnType("decimal(19,4)").IsRequired();

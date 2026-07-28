@@ -31,21 +31,26 @@ namespace BankingSystem.Api.Controllers
         {
             try
             {
-                var query = context.KycApplications
+                var allApps = await context.KycApplications
+                    .Include(k => k.User)
                     .Include(k => k.KycAddress)
                     .Include(k => k.KycDocuments)
-                    .AsNoTracking();
+                    .AsNoTracking()
+                    .OrderByDescending(k => k.SubmittedAtUtc)
+                    .ToListAsync(cancellationToken);
+
+                IEnumerable<KycApplication> filtered = allApps;
 
                 if (!string.IsNullOrWhiteSpace(status) && !string.Equals(status.Trim(), "all", StringComparison.OrdinalIgnoreCase))
                 {
                     var normStatus = status.Trim().ToUpperInvariant();
-                    query = query.Where(k => k.KycStatus.ToUpper() == normStatus);
+                    filtered = filtered.Where(k => (k.KycStatus ?? "").Trim().Equals(normStatus, StringComparison.OrdinalIgnoreCase));
                 }
 
-                var applications = await query
-                    .OrderBy(k => k.KycStatus == "PENDING" ? 0 : 1)
+                var applications = filtered
+                    .OrderBy(k => string.Equals(k.KycStatus, "PENDING", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
                     .ThenByDescending(k => k.SubmittedAtUtc)
-                    .ToListAsync(cancellationToken);
+                    .ToList();
 
                 var userIds = applications.Select(a => a.UserId).Distinct().ToList();
                 var userList = await context.Users
@@ -59,19 +64,28 @@ namespace BankingSystem.Api.Controllers
 
                 var responseList = applications.Select(k =>
                 {
-                    var user = users.GetValueOrDefault(k.UserId);
+                    var user = k.User ?? users.GetValueOrDefault(k.UserId);
                     var address = k.KycAddress;
 
                     var identityDoc = k.KycDocuments.FirstOrDefault(d =>
-                        !string.IsNullOrEmpty(d.DocumentNumber) &&
-                        !d.DocumentNumber.StartsWith("PHOTO_") &&
-                        !d.DocumentNumber.StartsWith("SIG_") &&
-                        !d.DocumentNumber.StartsWith("FORM60_"))
+                        d.DocumentType != "PAN_CARD" &&
+                        (string.IsNullOrEmpty(d.DocumentNumber) ||
+                        (!d.DocumentNumber.StartsWith("PHOTO_") &&
+                         !d.DocumentNumber.StartsWith("SIG_") &&
+                         !d.DocumentNumber.StartsWith("FORM60_"))))
                         ?? k.KycDocuments.FirstOrDefault();
 
-                    var photoDoc = k.KycDocuments.FirstOrDefault(d => !string.IsNullOrEmpty(d.DocumentNumber) && d.DocumentNumber.StartsWith("PHOTO_"));
-                    var sigDoc = k.KycDocuments.FirstOrDefault(d => !string.IsNullOrEmpty(d.DocumentNumber) && d.DocumentNumber.StartsWith("SIG_"));
-                    var panDoc = k.KycDocuments.FirstOrDefault(d => (!string.IsNullOrEmpty(d.DocumentType) && d.DocumentType == "PAN_CARD") || (!string.IsNullOrEmpty(d.DocumentNumber) && d.DocumentNumber.StartsWith("FORM60_")));
+                    var photoDoc = k.KycDocuments.FirstOrDefault(d =>
+                        d.DocumentType == "PASSPORT" || d.DocumentType == "PHOTO" ||
+                        (!string.IsNullOrEmpty(d.DocumentNumber) && d.DocumentNumber.StartsWith("PHOTO_")));
+
+                    var sigDoc = k.KycDocuments.FirstOrDefault(d =>
+                        d.DocumentType == "SIGNATURE" || d.DocumentType == "SIG" ||
+                        (!string.IsNullOrEmpty(d.DocumentNumber) && d.DocumentNumber.StartsWith("SIG_")));
+
+                    var panDoc = k.KycDocuments.FirstOrDefault(d =>
+                        d.DocumentType == "PAN_CARD" ||
+                        (!string.IsNullOrEmpty(d.DocumentNumber) && d.DocumentNumber.StartsWith("FORM60_")));
 
                     var docList = k.KycDocuments.Select(d => new
                     {
@@ -83,24 +97,26 @@ namespace BankingSystem.Api.Controllers
                         uploadedAt = d.UploadedAtUtc
                     }).ToList();
 
+                    var userObj = user != null ? new { id = user.UserId, _id = user.UserId, username = user.UserName, email = user.Email } : null;
+
                     return new
                     {
                         _id = k.KycApplicationId,
                         id = k.KycApplicationId,
                         userId = k.UserId,
-                        userName = user?.UserName ?? "N/A",
-                        username = user?.UserName ?? "N/A",
-                        email = user?.Email ?? "N/A",
-                        userIdData = user != null ? new { _id = user.UserId, username = user.UserName, email = user.Email } : null,
-                        user = user != null ? new { id = user.UserId, username = user.UserName, email = user.Email } : null,
+                        userName = user?.UserName ?? k.FullName,
+                        username = user?.UserName ?? k.FullName,
+                        email = user?.Email ?? string.Empty,
+                        userIdData = userObj,
+                        user = userObj,
                         fullName = k.FullName,
                         dateOfBirth = k.DateOfBirth.ToString("yyyy-MM-dd"),
                         gender = k.Gender,
                         status = k.KycStatus,
                         rejectionReason = k.RejectionReason,
                         rejectReason = k.RejectionReason,
-                        submittedAt = k.SubmittedAtUtc,
-                        createdAt = k.SubmittedAtUtc,
+                        submittedAt = k.SubmittedAtUtc != default ? k.SubmittedAtUtc : k.UpdatedAtUtc,
+                        createdAt = k.SubmittedAtUtc != default ? k.SubmittedAtUtc : k.UpdatedAtUtc,
                         address = address != null ? new
                         {
                             street = address.Street,
@@ -119,12 +135,12 @@ namespace BankingSystem.Api.Controllers
                         } : null,
                         documentType = identityDoc?.DocumentType ?? "IDENTITY_PROOF",
                         documentNumber = identityDoc?.DocumentNumber ?? "N/A",
-                        documentImageUrl = identityDoc?.DocumentImageUrl,
-                        documentImg = identityDoc?.DocumentImageUrl,
-                        photoUrl = photoDoc?.DocumentImageUrl,
-                        signatureUrl = sigDoc?.DocumentImageUrl,
-                        panNumber = panDoc?.DocumentNumber,
-                        panImageUrl = panDoc?.DocumentImageUrl,
+                        documentImageUrl = identityDoc?.DocumentImageUrl ?? string.Empty,
+                        documentImg = identityDoc?.DocumentImageUrl ?? string.Empty,
+                        photoUrl = photoDoc?.DocumentImageUrl ?? string.Empty,
+                        signatureUrl = sigDoc?.DocumentImageUrl ?? string.Empty,
+                        panNumber = panDoc?.DocumentNumber ?? string.Empty,
+                        panImageUrl = panDoc?.DocumentImageUrl ?? string.Empty,
                         documents = docList
                     };
                 }).ToList();
@@ -212,13 +228,11 @@ namespace BankingSystem.Api.Controllers
             var kycList = await context.KycApplications
                 .AsNoTracking()
                 .Where(k => userIds.Contains(k.UserId))
-                .GroupBy(k => k.UserId)
-                .Select(g => g.OrderByDescending(k => k.SubmittedAtUtc).First())
                 .ToListAsync(cancellationToken);
 
             var kycRecords = kycList
                 .GroupBy(k => k.UserId)
-                .ToDictionary(g => g.Key, g => g.First());
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(k => k.SubmittedAtUtc).First());
 
             var balances = await context.BankAccountBalanceViews
                 .AsNoTracking()

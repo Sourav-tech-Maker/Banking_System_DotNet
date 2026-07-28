@@ -355,7 +355,11 @@ import {
               <form (ngSubmit)="handleOperationalTransfer()" class="space-y-3 text-xs">
                 <div>
                   <label class="block text-slate-400 mb-1">Source Account ID (Guid)</label>
-                  <input type="text" [(ngModel)]="opForm.sourceAccount" name="sourceAccount" placeholder="Source Account GUID" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white font-mono" />
+                  <input type="text" [(ngModel)]="opForm.sourceAccount" name="sourceAccount" placeholder="Source Account GUID or Quick Select below" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white font-mono" />
+                  <select *ngIf="accounts().length > 0" (change)="opForm.sourceAccount = $any($event.target).value" class="mt-1 w-full bg-slate-950/80 border border-slate-800/80 rounded-lg p-2 text-[11px] text-indigo-400 cursor-pointer">
+                    <option value="">-- Quick Select Source System Account --</option>
+                    <option *ngFor="let a of accounts()" [value]="a.id">#{{ a.accountNumber }} - {{ a.accountType }} (Bal: ₹{{ a.balance }})</option>
+                  </select>
                 </div>
                 <div>
                   <label class="block text-slate-400 mb-1">Destination Account ID (Guid)</label>

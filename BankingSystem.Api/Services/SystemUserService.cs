@@ -135,14 +135,30 @@ namespace BankingSystem.Api.Services
                 return existingTransfer;
             }
 
-            var fromAccount = await context.BankAccounts.FirstOrDefaultAsync(a => a.AccountId == request.FromAccount, cancellationToken)
-                ?? throw new KeyNotFoundException("Source account not found.");
+            var fromAccount = await context.BankAccounts.FirstOrDefaultAsync(a => a.AccountId == request.FromAccount, cancellationToken);
+            if (fromAccount == null && request.FromAccount == Guid.Empty)
+            {
+                fromAccount = await context.BankAccounts.FirstOrDefaultAsync(a => a.AccountType == "SYSTEM_TREASURY" || a.AccountType == "SYSTEM", cancellationToken);
+            }
+            if (fromAccount == null)
+            {
+                throw new KeyNotFoundException($"Source account '{request.FromAccount}' was not found in the database.");
+            }
+
             var toAccount = await context.BankAccounts.FirstOrDefaultAsync(a => a.AccountId == request.ToAccount, cancellationToken)
-                ?? throw new KeyNotFoundException("Destination account not found.");
+                ?? throw new KeyNotFoundException($"Destination account '{request.ToAccount}' was not found in the database.");
 
             if (fromAccount.AccountStatus != "ACTIVE" || toAccount.AccountStatus != "ACTIVE")
             {
                 throw new InvalidOperationException("Both source and destination accounts must be ACTIVE.");
+            }
+
+            var validActorUser = await context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == systemUserId, cancellationToken);
+            Guid? actorUserId = validActorUser?.UserId;
+            if (actorUserId == null)
+            {
+                var fallbackAdmin = await context.Users.AsNoTracking().FirstOrDefaultAsync(cancellationToken);
+                actorUserId = fallbackAdmin?.UserId;
             }
 
             var now = timeProvider.GetUtcNow().UtcDateTime;
@@ -152,58 +168,48 @@ namespace BankingSystem.Api.Services
                 var transfer = new Transfer
                 {
                     TransferId = Guid.NewGuid(),
+                    TransferReference = "TXN-" + Guid.NewGuid().ToString("N")[..16].ToUpperInvariant(),
                     IdempotencyKey = request.IdempotencyKey,
-                    FromAccountId = request.FromAccount,
-                    ToAccountId = request.ToAccount,
+                    FromAccountId = fromAccount.AccountId,
+                    ToAccountId = toAccount.AccountId,
                     Amount = request.Amount,
                     CurrencyCode = fromAccount.CurrencyCode,
-                    TransferType = "SYSTEM_INTERNAL_TRANSFER",
-                    TransferStatus = "COMPLETED",
-                    PaymentMethod = "INTERNAL_OPERATIONAL",
-                    Category = "INTERNAL_TRANSFER",
+                    TransferType = "ADJUSTMENT",
+                    TransferStatus = "PENDING",
+                    PaymentMethod = "INTERNAL",
+                    Category = "FUNDING",
                     Narration = request.Narration ?? "SystemUser internal operational transfer",
-                    InitiatedByUserId = systemUserId,
+                    InitiatedByUserId = actorUserId,
                     ClientIpAddress = clientIp,
                     UserAgent = userAgent,
                     CreatedAtUtc = now,
-                    UpdatedAtUtc = now,
-                    CompletedAtUtc = now
+                    UpdatedAtUtc = now
                 };
 
                 context.Transfers.Add(transfer);
+                await context.SaveChangesAsync(cancellationToken);
 
-                var debitEntry = new LedgerEntry
-                {
-                    TransferId = transfer.TransferId,
-                    AccountId = request.FromAccount,
-                    EntrySequence = 1,
-                    EntryType = "DEBIT",
-                    Amount = request.Amount,
-                    CreatedAtUtc = now
-                };
-                var creditEntry = new LedgerEntry
-                {
-                    TransferId = transfer.TransferId,
-                    AccountId = request.ToAccount,
-                    EntrySequence = 2,
-                    EntryType = "CREDIT",
-                    Amount = request.Amount,
-                    CreatedAtUtc = now
-                };
+                var tIdParam = new Microsoft.Data.SqlClient.SqlParameter("@TransferId", transfer.TransferId);
+                var fromAccParam = new Microsoft.Data.SqlClient.SqlParameter("@FromAccountId", fromAccount.AccountId);
+                var toAccParam = new Microsoft.Data.SqlClient.SqlParameter("@ToAccountId", toAccount.AccountId);
+                var amountParam = new Microsoft.Data.SqlClient.SqlParameter("@Amount", request.Amount);
 
-                context.LedgerEntries.Add(debitEntry);
-                context.LedgerEntries.Add(creditEntry);
+                await context.Database.ExecuteSqlRawAsync(
+                    @"INSERT INTO [Banking].[LedgerEntries] ([TransferId], [AccountId], [EntrySequence], [EntryType], [Amount]) 
+                      VALUES (@TransferId, @FromAccountId, 1, N'DEBIT', @Amount), 
+                             (@TransferId, @ToAccountId, 2, N'CREDIT', @Amount);",
+                    tIdParam, fromAccParam, toAccParam, amountParam);
 
                 var auditLog = new AdminEvent
                 {
-                    ActorUserId = systemUserId,
+                    ActorUserId = actorUserId,
                     EventType = "SYSTEMUSER_INTERNAL_TRANSFER",
                     EntityType = "Transfer",
                     EventDataJson = JsonSerializer.Serialize(new
                     {
                         TransferId = transfer.TransferId,
-                        FromAccountId = request.FromAccount,
-                        ToAccountId = request.ToAccount,
+                        FromAccountId = fromAccount.AccountId,
+                        ToAccountId = toAccount.AccountId,
                         Amount = request.Amount,
                         IdempotencyKey = request.IdempotencyKey
                     }),
@@ -214,9 +220,20 @@ namespace BankingSystem.Api.Services
                 context.AdminEvents.Add(auditLog);
 
                 await context.SaveChangesAsync(cancellationToken);
+
+                transfer.TransferStatus = "COMPLETED";
+                transfer.CompletedAtUtc = now;
+                transfer.UpdatedAtUtc = now;
+
+                await context.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
 
                 return transfer;
+            }
+            catch (DbUpdateException ex)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                throw new InvalidOperationException($"Transfer rejected by database: {ex.InnerException?.Message ?? ex.Message}");
             }
             catch
             {
@@ -257,14 +274,33 @@ namespace BankingSystem.Api.Services
                 return existingTransfer;
             }
 
-            var fromAccount = await context.BankAccounts.FirstOrDefaultAsync(a => a.AccountId == request.SourceAccount, cancellationToken)
-                ?? throw new KeyNotFoundException("Source account not found.");
-            var toAccount = await context.BankAccounts.FirstOrDefaultAsync(a => a.AccountId == request.DestinationAccount, cancellationToken)
-                ?? throw new KeyNotFoundException("Destination account not found.");
+            var fromAccount = await context.BankAccounts.FirstOrDefaultAsync(a => a.AccountId == request.SourceAccount, cancellationToken);
+            if (fromAccount == null && request.SourceAccount == Guid.Empty)
+            {
+                fromAccount = await context.BankAccounts.FirstOrDefaultAsync(a => a.AccountType == "SYSTEM_TREASURY" || a.AccountType == "SYSTEM", cancellationToken);
+            }
+            if (fromAccount == null)
+            {
+                throw new KeyNotFoundException($"Source account with GUID '{request.SourceAccount}' was not found in the database. Please verify the Source Account GUID.");
+            }
+
+            var toAccount = await context.BankAccounts.FirstOrDefaultAsync(a => a.AccountId == request.DestinationAccount, cancellationToken);
+            if (toAccount == null)
+            {
+                throw new KeyNotFoundException($"Destination account with GUID '{request.DestinationAccount}' was not found in the database. Please verify the Destination Account GUID.");
+            }
 
             if (fromAccount.AccountStatus != "ACTIVE" || toAccount.AccountStatus != "ACTIVE")
             {
                 throw new InvalidOperationException("Both source and destination accounts must be ACTIVE.");
+            }
+
+            var validActorUser = await context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == systemUserId, cancellationToken);
+            Guid? actorUserId = validActorUser?.UserId;
+            if (actorUserId == null)
+            {
+                var fallbackAdmin = await context.Users.AsNoTracking().FirstOrDefaultAsync(cancellationToken);
+                actorUserId = fallbackAdmin?.UserId;
             }
 
             var now = timeProvider.GetUtcNow().UtcDateTime;
@@ -276,58 +312,47 @@ namespace BankingSystem.Api.Services
                     TransferId = Guid.NewGuid(),
                     TransferReference = "TXN-" + Guid.NewGuid().ToString("N")[..16].ToUpperInvariant(),
                     IdempotencyKey = request.IdempotencyKey,
-                    FromAccountId = request.SourceAccount,
-                    ToAccountId = request.DestinationAccount,
+                    FromAccountId = fromAccount.AccountId,
+                    ToAccountId = toAccount.AccountId,
                     Amount = request.Amount,
                     CurrencyCode = fromAccount.CurrencyCode,
-                    TransferType = request.OperationType,
-                    TransferStatus = "COMPLETED",
-                    PaymentMethod = "PRIVILEGED_OPERATIONAL",
-                    Category = "OPERATIONAL_ADJUSTMENT",
+                    TransferType = "ADJUSTMENT",
+                    TransferStatus = "PENDING",
+                    PaymentMethod = "INTERNAL",
+                    Category = "FUNDING",
                     Narration = $"[SystemUser Privileged Transfer] Reason: {request.Reason} | CorrelationId: {request.CorrelationId}",
-                    InitiatedByUserId = systemUserId,
+                    InitiatedByUserId = actorUserId,
                     ClientIpAddress = clientIp,
                     UserAgent = userAgent,
                     CreatedAtUtc = now,
-                    UpdatedAtUtc = now,
-                    CompletedAtUtc = now
+                    UpdatedAtUtc = now
                 };
 
                 context.Transfers.Add(transfer);
+                await context.SaveChangesAsync(cancellationToken);
 
-                var debitEntry = new LedgerEntry
-                {
-                    TransferId = transfer.TransferId,
-                    AccountId = request.SourceAccount,
-                    EntrySequence = 1,
-                    EntryType = "DEBIT",
-                    Amount = request.Amount,
-                    CreatedAtUtc = now
-                };
-                var creditEntry = new LedgerEntry
-                {
-                    TransferId = transfer.TransferId,
-                    AccountId = request.DestinationAccount,
-                    EntrySequence = 2,
-                    EntryType = "CREDIT",
-                    Amount = request.Amount,
-                    CreatedAtUtc = now
-                };
+                var opTIdParam = new Microsoft.Data.SqlClient.SqlParameter("@TransferId", transfer.TransferId);
+                var opFromAccParam = new Microsoft.Data.SqlClient.SqlParameter("@FromAccountId", fromAccount.AccountId);
+                var opToAccParam = new Microsoft.Data.SqlClient.SqlParameter("@ToAccountId", toAccount.AccountId);
+                var opAmountParam = new Microsoft.Data.SqlClient.SqlParameter("@Amount", request.Amount);
 
-                context.LedgerEntries.Add(debitEntry);
-                context.LedgerEntries.Add(creditEntry);
+                await context.Database.ExecuteSqlRawAsync(
+                    @"INSERT INTO [Banking].[LedgerEntries] ([TransferId], [AccountId], [EntrySequence], [EntryType], [Amount]) 
+                      VALUES (@TransferId, @FromAccountId, 1, N'DEBIT', @Amount), 
+                             (@TransferId, @ToAccountId, 2, N'CREDIT', @Amount);",
+                    opTIdParam, opFromAccParam, opToAccParam, opAmountParam);
 
                 var auditLog = new AdminEvent
                 {
-                    ActorUserId = systemUserId,
+                    ActorUserId = actorUserId,
                     EventType = "PRIVILEGED_OPERATIONAL_TRANSFER",
                     EntityType = "Transfer",
                     EventDataJson = JsonSerializer.Serialize(new
                     {
-                        SystemUserId = systemUserId,
+                        SystemUserId = actorUserId,
                         AffectedCustomerId = request.AffectedCustomerId,
-                        SourceAccount = request.SourceAccount,
-                        DestinationAccount = request.DestinationAccount,
+                        SourceAccount = fromAccount.AccountId,
+                        DestinationAccount = toAccount.AccountId,
                         Amount = request.Amount,
                         Reason = request.Reason,
                         OperationType = request.OperationType,
@@ -343,9 +368,20 @@ namespace BankingSystem.Api.Services
                 context.AdminEvents.Add(auditLog);
 
                 await context.SaveChangesAsync(cancellationToken);
+
+                transfer.TransferStatus = "COMPLETED";
+                transfer.CompletedAtUtc = now;
+                transfer.UpdatedAtUtc = now;
+
+                await context.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
 
                 return transfer;
+            }
+            catch (DbUpdateException ex)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                throw new InvalidOperationException($"Transfer rejected by database: {ex.InnerException?.Message ?? ex.Message}");
             }
             catch
             {

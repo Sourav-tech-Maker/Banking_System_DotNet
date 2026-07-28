@@ -596,7 +596,7 @@ public sealed class AuthService(
         {
             var accessTokenHash = tokenService.HashToken(accessToken);
             var alreadyRevoked = await context.RevokedAccessTokens.AnyAsync(
-                token => token.TokenHash.SequenceEqual(accessTokenHash),
+                token => token.TokenHash == accessTokenHash,
                 cancellationToken);
 
             if (!alreadyRevoked)

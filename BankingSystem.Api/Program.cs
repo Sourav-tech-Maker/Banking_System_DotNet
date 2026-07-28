@@ -153,7 +153,7 @@ builder.Services
                 var tokenHash = tokenService.HashToken(rawToken);
                 var isRevoked = await dbContext.RevokedAccessTokens
                     .AsNoTracking()
-                    .AnyAsync(token => token.TokenHash.SequenceEqual(tokenHash));
+                    .AnyAsync(token => token.TokenHash == tokenHash);
 
                 if (isRevoked)
                 {

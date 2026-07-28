@@ -79,8 +79,8 @@ import { ToastService } from './toast-notification.component';
                 </span>
               </div>
               <p class="text-xs text-slate-500 dark:text-slate-400">
-                User: <strong>{{ kyc.userName || kyc.username || kyc.userIdData?.username || 'N/A' }}</strong>
-                <span *ngIf="kyc.email || kyc.userIdData?.email">({{ kyc.email || kyc.userIdData?.email }})</span>
+                User: <strong>{{ (kyc.userName && kyc.userName !== 'N/A') ? kyc.userName : (kyc.username || kyc.fullName || 'N/A') }}</strong>
+                <span *ngIf="kyc.email && kyc.email !== 'N/A' && kyc.email !== ''">({{ kyc.email }})</span>
               </p>
               <p class="text-[11px] text-slate-400 dark:text-slate-500">
                 Submitted: {{ (kyc.submittedAt || kyc.createdAt) | date:'medium' }}
@@ -269,11 +269,12 @@ export class AdminKycManagementComponent implements OnInit, OnChanges {
 
   setFilter(f: string) {
     this.filter = f;
+    this.loadApplications();
   }
 
   protected loadApplications() {
     this.loading.set(true);
-    this.apiService.getAdminKycApplications().subscribe({
+    this.apiService.getAdminKycApplications(this.filter).subscribe({
       next: (res) => {
         const list = res.applications || (Array.isArray(res) ? res : []);
         this.applications.set(list);

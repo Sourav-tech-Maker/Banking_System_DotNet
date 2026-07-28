@@ -113,7 +113,7 @@ namespace BankingSystem.Api.Controllers
 
             if (existingKyc != null)
             {
-                if (existingKyc.KycStatus == "REJECTED")
+                if (string.Equals(existingKyc.KycStatus, "REJECTED", StringComparison.OrdinalIgnoreCase))
                 {
                     if (existingKyc.KycAddress != null) context.KycAddresses.Remove(existingKyc.KycAddress);
                     context.KycDocuments.RemoveRange(existingKyc.KycDocuments);
@@ -122,7 +122,7 @@ namespace BankingSystem.Api.Controllers
                 }
                 else
                 {
-                    return Conflict(new { message = "KYC Application already registered for this user." });
+                    return Conflict(new { message = $"KYC Application is already registered and currently in '{existingKyc.KycStatus}' status." });
                 }
             }
 
@@ -209,13 +209,34 @@ namespace BankingSystem.Api.Controllers
             else if (normalizedDocType.Contains("DRIVER") || normalizedDocType.Contains("LICENSE")) normalizedDocType = "DRIVER_LICENSE";
             else normalizedDocType = "PAN_CARD";
 
+            var cleanDocNum = documentNumber.Trim();
+
+            // Clear any lingering document record with the same DocumentNumber for this user or orphan records
+            var conflictingDoc = await context.KycDocuments
+                .FirstOrDefaultAsync(d => d.DocumentNumber == cleanDocNum, cancellationToken);
+            if (conflictingDoc != null)
+            {
+                var parentApp = await context.KycApplications
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(k => k.KycApplicationId == conflictingDoc.KycApplicationId, cancellationToken);
+                if (parentApp == null || parentApp.UserId == userId)
+                {
+                    context.KycDocuments.Remove(conflictingDoc);
+                    await context.SaveChangesAsync(cancellationToken);
+                }
+                else
+                {
+                    return Conflict(new { message = $"Document number '{cleanDocNum}' is already registered with another account." });
+                }
+            }
+
             // 1. Proof of Identity Document
             kycApp.KycDocuments.Add(new KycDocument
             {
                 KycDocumentId = Guid.NewGuid(),
                 KycApplicationId = kycApp.KycApplicationId,
                 DocumentType = normalizedDocType,
-                DocumentNumber = documentNumber.Trim(),
+                DocumentNumber = cleanDocNum,
                 DocumentImageUrl = identityImageUrl,
                 UploadedAtUtc = now
             });
@@ -226,7 +247,7 @@ namespace BankingSystem.Api.Controllers
                 KycDocumentId = Guid.NewGuid(),
                 KycApplicationId = kycApp.KycApplicationId,
                 DocumentType = "PASSPORT",
-                DocumentNumber = $"PHOTO_{userId:N}",
+                DocumentNumber = $"PHOTO_{userId:N}_{Guid.NewGuid():N}",
                 DocumentImageUrl = photoUrl,
                 UploadedAtUtc = now
             });
@@ -237,14 +258,33 @@ namespace BankingSystem.Api.Controllers
                 KycDocumentId = Guid.NewGuid(),
                 KycApplicationId = kycApp.KycApplicationId,
                 DocumentType = "DRIVER_LICENSE",
-                DocumentNumber = $"SIG_{userId:N}",
+                DocumentNumber = $"SIG_{userId:N}_{Guid.NewGuid():N}",
                 DocumentImageUrl = sigUrl,
                 UploadedAtUtc = now
             });
 
             // 4. PAN or Form 60 Document Record
-            if (hasPan)
+            if (hasPan && !string.IsNullOrWhiteSpace(panNumber))
             {
+                string cleanPan = panNumber.Trim().ToUpperInvariant();
+                var conflictingPan = await context.KycDocuments
+                    .FirstOrDefaultAsync(d => d.DocumentNumber == cleanPan, cancellationToken);
+                if (conflictingPan != null)
+                {
+                    var parentApp = await context.KycApplications
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(k => k.KycApplicationId == conflictingPan.KycApplicationId, cancellationToken);
+                    if (parentApp == null || parentApp.UserId == userId)
+                    {
+                        context.KycDocuments.Remove(conflictingPan);
+                        await context.SaveChangesAsync(cancellationToken);
+                    }
+                    else
+                    {
+                        return Conflict(new { message = $"PAN Card number '{cleanPan}' is already registered with another account." });
+                    }
+                }
+
                 string panDocUrl = identityImageUrl;
                 if (panImg != null)
                 {
@@ -255,7 +295,7 @@ namespace BankingSystem.Api.Controllers
                     KycDocumentId = Guid.NewGuid(),
                     KycApplicationId = kycApp.KycApplicationId,
                     DocumentType = "PAN_CARD",
-                    DocumentNumber = panNumber!.Trim().ToUpperInvariant(),
+                    DocumentNumber = cleanPan,
                     DocumentImageUrl = panDocUrl,
                     UploadedAtUtc = now
                 });
@@ -267,14 +307,21 @@ namespace BankingSystem.Api.Controllers
                     KycDocumentId = Guid.NewGuid(),
                     KycApplicationId = kycApp.KycApplicationId,
                     DocumentType = "PAN_CARD",
-                    DocumentNumber = $"FORM60_{userId:N}",
+                    DocumentNumber = $"FORM60_{userId:N}_{Guid.NewGuid():N}",
                     DocumentImageUrl = form60Details ?? "FORM_60_SUBMITTED",
                     UploadedAtUtc = now
                 });
             }
 
-            context.KycApplications.Add(kycApp);
-            await context.SaveChangesAsync(cancellationToken);
+            try
+            {
+                context.KycApplications.Add(kycApp);
+                await context.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException)
+            {
+                return Conflict(new { message = "KYC submission failed because your user ID or document number conflicts with an existing record. If your previous submission was rejected, click 'Resubmit KYC'." });
+            }
 
             return StatusCode(StatusCodes.Status201Created, new
             {
