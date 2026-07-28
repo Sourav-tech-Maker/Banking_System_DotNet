@@ -131,7 +131,6 @@ namespace BankingSystem.Api.Controllers
                         id = k.KycApplicationId,
                         userId = k.UserId,
                         userName = user?.UserName ?? k.FullName ?? "User",
-                        username = user?.UserName ?? k.FullName ?? "User",
                         email = user?.Email ?? string.Empty,
                         userIdData = userObj,
                         user = userObj,
@@ -140,7 +139,6 @@ namespace BankingSystem.Api.Controllers
                         gender = k.Gender ?? string.Empty,
                         status = k.KycStatus ?? "PENDING",
                         rejectionReason = k.RejectionReason,
-                        rejectReason = k.RejectionReason,
                         submittedAt = k.SubmittedAtUtc != default ? k.SubmittedAtUtc : k.UpdatedAtUtc,
                         createdAt = k.SubmittedAtUtc != default ? k.SubmittedAtUtc : k.UpdatedAtUtc,
                         address = address != null ? new
