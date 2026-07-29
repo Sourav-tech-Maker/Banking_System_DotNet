@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
+import { CurrencyService } from '../../services/currency.service';
 
 @Component({
   selector: 'app-transactions-view',
@@ -122,7 +123,7 @@ import { ApiService } from '../../services/api.service';
                     [ngClass]="txn.direction === 'debit' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'"
                     class="py-4 px-4 font-bold text-base"
                   >
-                    {{ txn.direction === 'debit' ? '-' : '+' }}₹{{ txn.amount | number:'1.2-2' }}
+                    {{ txn.direction === 'debit' ? '-' : '+' }}{{ cs.format(txn.amount) }}
                   </td>
                   <td class="py-4 pl-4 text-right">
                     <span
@@ -174,6 +175,7 @@ import { ApiService } from '../../services/api.service';
 })
 export class TransactionsViewComponent implements OnInit {
   private readonly apiService = inject(ApiService);
+  protected readonly cs = inject(CurrencyService);
 
   protected transactions = signal<any[]>([]);
   protected loading = signal(false);

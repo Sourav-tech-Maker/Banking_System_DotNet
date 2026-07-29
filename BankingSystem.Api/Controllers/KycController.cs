@@ -1,26 +1,21 @@
-using System;
-using System.IO;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using BankingSystem.Api.Data;
 using BankingSystem.Api.DTOs.Kyc;
 using BankingSystem.Api.Models.Compliance;
 using BankingSystem.Api.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace BankingSystem.Api.Controllers
+namespace BankingSystem.Api.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public sealed class KycController(
+    AppDbContext context,
+    IImageKitService imageKitService,
+    TimeProvider timeProvider) : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public sealed class KycController(
-        AppDbContext context,
-        IImageKitService imageKitService,
-        TimeProvider timeProvider) : ControllerBase
-    {
         private sealed class PermanentAddressModel
         {
             public string Street { get; set; } = null!;
@@ -556,4 +551,3 @@ namespace BankingSystem.Api.Controllers
             });
         }
     }
-}

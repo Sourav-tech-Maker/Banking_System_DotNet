@@ -2,6 +2,8 @@ import { Component, OnInit, Output, EventEmitter, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslationService, SupportedLanguage } from '../../services/translation.service';
+import { SessionTimeoutService } from '../../services/session-timeout.service';
+import { CurrencyService, CurrencyCode } from '../../services/currency.service';
 
 export interface UserAppSettings {
   darkMode: boolean;
@@ -337,6 +339,8 @@ export class SettingsViewComponent implements OnInit {
   @Output() onThemeChange = new EventEmitter<boolean>();
 
   protected readonly ts = inject(TranslationService);
+  protected readonly cs = inject(CurrencyService);
+  protected readonly sessionService = inject(SessionTimeoutService);
   protected readonly availableLanguages = TranslationService.LANGUAGES;
   protected showToast = false;
 
@@ -369,8 +373,10 @@ export class SettingsViewComponent implements OnInit {
         // ignore
       }
     }
-    // Sync current language with TranslationService
+    // Sync language and currency services
     this.ts.setLanguage(this.settings.lang);
+    this.cs.setCurrency((this.settings.currency || 'INR') as CurrencyCode);
+    this.cs.setMaskBalance(!!this.settings.maskBalance);
   }
 
   protected onLanguageChange(newLang: SupportedLanguage) {
@@ -388,6 +394,10 @@ export class SettingsViewComponent implements OnInit {
     localStorage.setItem('yono_settings', JSON.stringify(this.settings));
     localStorage.setItem('yono_theme', this.settings.darkMode ? 'dark' : 'light');
     localStorage.setItem('yono_lang', this.settings.lang);
+
+    this.cs.setCurrency((this.settings.currency || 'INR') as CurrencyCode);
+    this.cs.setMaskBalance(!!this.settings.maskBalance);
+    this.sessionService.updateTimeout(this.settings.sessionTimeout);
 
     if (this.settings.darkMode) {
       document.documentElement.classList.add('dark');
@@ -417,6 +427,8 @@ export class SettingsViewComponent implements OnInit {
       largeTxThreshold: 5000
     };
     this.ts.setLanguage('en');
+    this.cs.setCurrency('INR');
+    this.cs.setMaskBalance(false);
     this.saveSettings(true);
     this.onThemeChange.emit(false);
   }

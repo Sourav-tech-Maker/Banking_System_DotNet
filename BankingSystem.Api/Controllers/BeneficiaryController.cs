@@ -1,10 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using BankingSystem.Api.Data;
 using BankingSystem.Api.DTOs.Beneficiary;
 using BankingSystem.Api.Models.Auth;
@@ -12,17 +7,16 @@ using BankingSystem.Api.Models.Banking;
 using BankingSystem.Api.Models.Integration;
 using BankingSystem.Api.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace BankingSystem.Api.Controllers
-{
-    [Authorize]
-    [ApiController]
-    [Route("api/[controller]")]
-    public sealed class BeneficiaryController(
-        AppDbContext context,
+namespace BankingSystem.Api.Controllers;
+
+[Authorize]
+[ApiController]
+[Route("api/[controller]")]
+public sealed class BeneficiaryController(
+    AppDbContext context,
         ITokenService tokenService,
         TimeProvider timeProvider) : ControllerBase
     {
@@ -367,4 +361,3 @@ namespace BankingSystem.Api.Controllers
             return $"{email[..visibleCharacters]}{new string('•', maskedCharacters)}{email[atIndex..]}";
         }
     }
-}

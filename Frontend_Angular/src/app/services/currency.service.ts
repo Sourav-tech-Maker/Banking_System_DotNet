@@ -89,6 +89,16 @@ export class CurrencyService {
     return `${config.symbol}${formattedNum}`;
   }
 
+  public maskAccount(accountNoOrId: string, forceUnmask = false): string {
+    if (!accountNoOrId) return '';
+    if (this.maskBalance() && !forceUnmask) {
+      const clean = accountNoOrId.trim();
+      const visible = clean.length > 4 ? clean.slice(-4) : clean;
+      return `•••• ${visible}`;
+    }
+    return accountNoOrId;
+  }
+
   public convertInrToSelected(amountInInr: number): number {
     const code = this.currentCurrency();
     const config = CurrencyService.CURRENCIES[code] || CurrencyService.CURRENCIES.INR;

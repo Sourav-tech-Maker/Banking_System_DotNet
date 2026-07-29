@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
 import { TranslationService } from '../../services/translation.service';
+import { CurrencyService } from '../../services/currency.service';
 
 @Component({
   selector: 'app-profile-view',
@@ -130,10 +131,10 @@ import { TranslationService } from '../../services/translation.service';
               <div *ngFor="let acc of profile?.accounts" class="rounded-xl border border-slate-200 bg-slate-50 p-4 flex items-center justify-between dark:border-slate-800 dark:bg-slate-900">
                 <div>
                   <p class="font-bold text-slate-900 dark:text-white">{{ acc.accountType }} Account</p>
-                  <p class="font-mono text-xs text-slate-500 dark:text-slate-400 mt-1">ID: {{ acc.accountId }}</p>
+                  <p class="font-mono text-xs text-slate-500 dark:text-slate-400 mt-1">ID: {{ cs.maskAccount(acc.accountId) }}</p>
                 </div>
                 <div class="text-right">
-                  <p class="font-extrabold text-slate-950 dark:text-white text-base">₹{{ acc.balance | number:'1.2-2' }}</p>
+                  <p class="font-extrabold text-slate-950 dark:text-white text-base">{{ cs.format(acc.balance) }}</p>
                   <span class="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 uppercase mt-1 inline-block dark:bg-emerald-950 dark:text-emerald-300">
                     {{ acc.status }}
                   </span>
@@ -210,6 +211,7 @@ import { TranslationService } from '../../services/translation.service';
 export class ProfileViewComponent implements OnInit {
   private readonly apiService = inject(ApiService);
   protected readonly ts = inject(TranslationService);
+  protected readonly cs = inject(CurrencyService);
 
   protected profile: any = null;
   protected loading = signal(false);

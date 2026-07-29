@@ -14,7 +14,7 @@
     target schema.
 */
 
-USE [Banking_System];
+-- USE [db61609];
 GO
 
 SET NOCOUNT ON;

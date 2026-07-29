@@ -1,23 +1,17 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using BankingSystem.Api.Data;
 using BankingSystem.Api.DTOs.Goal;
 using BankingSystem.Api.Models.Savings;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace BankingSystem.Api.Controllers
+namespace BankingSystem.Api.Controllers;
+
+[Authorize]
+[ApiController]
+[Route("api/[controller]")]
+public sealed class GoalsController(AppDbContext context, TimeProvider timeProvider) : ControllerBase
 {
-    [Authorize]
-    [ApiController]
-    [Route("api/[controller]")]
-    public sealed class GoalsController(AppDbContext context, TimeProvider timeProvider) : ControllerBase
-    {
         [HttpPost]
         public async Task<IActionResult> CreateGoal(
             [FromBody] CreateGoalRequest request,
@@ -293,4 +287,3 @@ namespace BankingSystem.Api.Controllers
         }
 
     }
-}

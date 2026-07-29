@@ -1,6 +1,3 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using BankingSystem.Api.DTOs.Transaction;
 using BankingSystem.Api.Models.Banking;
 

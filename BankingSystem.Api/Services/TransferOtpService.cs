@@ -1,15 +1,10 @@
-using System;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using BankingSystem.Api.Data;
 using BankingSystem.Api.DTOs.Transaction;
 using BankingSystem.Api.Middleware;
 using BankingSystem.Api.Models.Banking;
 using BankingSystem.Api.Models.Integration;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace BankingSystem.Api.Services

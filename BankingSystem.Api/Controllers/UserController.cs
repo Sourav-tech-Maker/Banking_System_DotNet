@@ -1,20 +1,15 @@
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using BankingSystem.Api.Data;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace BankingSystem.Api.Controllers
+namespace BankingSystem.Api.Controllers;
+
+[Authorize]
+[ApiController]
+[Route("api/[controller]")]
+public sealed class UserController(AppDbContext context, TimeProvider timeProvider) : ControllerBase
 {
-    [Authorize]
-    [ApiController]
-    [Route("api/[controller]")]
-    public sealed class UserController(AppDbContext context, TimeProvider timeProvider) : ControllerBase
-    {
         public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
         public sealed record UpdateProfileRequest(string Username);
 
@@ -178,4 +173,3 @@ namespace BankingSystem.Api.Controllers
             return Ok(new { message = "Profile updated successfully.", username = newUsername, status = "success" });
         }
     }
-}

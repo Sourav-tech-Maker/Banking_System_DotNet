@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
+import { CurrencyService } from '../../services/currency.service';
 
 @Component({
   selector: 'app-goals-view',
@@ -68,11 +69,11 @@ import { ApiService } from '../../services/api.service';
             <div class="mt-4 grid grid-cols-2 gap-4 border-t border-slate-100 dark:border-slate-800/80 pt-4 text-sm font-semibold">
               <div>
                 <span class="block text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">Saved</span>
-                <span class="text-slate-900 dark:text-white font-extrabold text-base">₹{{ goal.currentAmount | number:'1.2-2' }}</span>
+                <span class="text-slate-900 dark:text-white font-extrabold text-base">{{ cs.format(goal.currentAmount) }}</span>
               </div>
               <div>
                 <span class="block text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">Target</span>
-                <span class="text-slate-950 dark:text-slate-200 font-extrabold text-base">₹{{ goal.targetAmount | number:'1.2-2' }}</span>
+                <span class="text-slate-950 dark:text-slate-200 font-extrabold text-base">{{ cs.format(goal.targetAmount) }}</span>
               </div>
             </div>
 
@@ -227,7 +228,7 @@ import { ApiService } from '../../services/api.service';
           <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
             <div>
               <h2 class="text-lg font-bold text-slate-900 dark:text-white">Deposit History</h2>
-              <p class="text-xs text-slate-500 dark:text-slate-400">{{ historyGoal()?.title }} (Target: ₹{{ historyGoal()?.targetAmount | number:'1.0-0' }})</p>
+              <p class="text-xs text-slate-500 dark:text-slate-400">{{ historyGoal()?.title }} (Target: {{ cs.format(historyGoal()?.targetAmount || 0) }})</p>
             </div>
             <button
               type="button"
@@ -256,7 +257,7 @@ import { ApiService } from '../../services/api.service';
                   <span class="text-xs font-bold text-slate-900 dark:text-white capitalize">{{ log.type || 'Manual Deposit' }}</span>
                   <span class="block text-[10px] text-slate-400 dark:text-slate-500">{{ log.createdAt | date:'medium' }}</span>
                 </div>
-                <span class="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">+₹{{ log.amountAdded | number:'1.2-2' }}</span>
+                <span class="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">+{{ cs.format(log.amountAdded) }}</span>
               </div>
             </div>
           </div>
@@ -277,6 +278,7 @@ import { ApiService } from '../../services/api.service';
 })
 export class GoalsViewComponent implements OnInit {
   private api = inject(ApiService);
+  protected cs = inject(CurrencyService);
 
   goals = signal<any[]>([]);
   loading = signal<boolean>(true);

@@ -1,7 +1,4 @@
-using System;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using BankingSystem.Api.Data;
 using BankingSystem.Api.Models.Integration;
 using Microsoft.EntityFrameworkCore;

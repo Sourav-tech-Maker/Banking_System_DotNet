@@ -20,6 +20,26 @@ public sealed class SmtpEmailSender(
             throw new InvalidOperationException("Email delivery is disabled.");
         }
 
+        var password = options.UsesGmail
+            ? options.Password?.Replace(" ", string.Empty, StringComparison.Ordinal)
+            : options.Password;
+
+        // If no SMTP Password or OAuth2 credentials are configured, log the email body for local development testing
+        if (string.IsNullOrWhiteSpace(password) && !options.OAuth2.IsConfigured)
+        {
+            logger.LogWarning(
+                "\n==========================================================\n" +
+                "[NO SMTP PASSWORD SET - SIMULATED EMAIL DELIVERED]\n" +
+                "To: {Recipient}\n" +
+                "Subject: {Subject}\n\n" +
+                "Body:\n{TextBody}\n" +
+                "==========================================================\n",
+                message.To,
+                message.Subject,
+                message.TextBody);
+            return;
+        }
+
         if (!Enum.TryParse<SecureSocketOptions>(
                 options.SocketSecurity,
                 ignoreCase: true,
@@ -39,44 +59,97 @@ public sealed class SmtpEmailSender(
             HtmlBody = message.HtmlBody
         }.ToMessageBody();
 
-        using var smtpClient = new SmtpClient
+        try
         {
-            Timeout = checked(options.TimeoutSeconds * 1000)
-        };
+            using var smtpClient = new SmtpClient
+            {
+                Timeout = checked(options.TimeoutSeconds * 1000)
+            };
 
-        await smtpClient.ConnectAsync(
-            options.Host,
-            options.Port,
-            socketSecurity,
-            cancellationToken);
-
-        var password = options.UsesGmail
-            ? options.Password?.Replace(" ", string.Empty, StringComparison.Ordinal)
-            : options.Password;
-
-        if (!string.IsNullOrWhiteSpace(password))
-        {
-            await smtpClient.AuthenticateAsync(
-                options.Username,
-                password,
+            await smtpClient.ConnectAsync(
+                options.Host,
+                options.Port,
+                socketSecurity,
                 cancellationToken);
+
+            var authenticated = false;
+
+            // 1. Try App Password if provided
+            if (!string.IsNullOrWhiteSpace(password))
+            {
+                try
+                {
+                    await smtpClient.AuthenticateAsync(
+                        options.Username,
+                        password,
+                        cancellationToken);
+                    authenticated = true;
+                }
+                catch (Exception authEx)
+                {
+                    logger.LogWarning(
+                        authEx,
+                        "SMTP App Password authentication failed for '{Username}'. Will attempt OAuth2 if configured.",
+                        options.Username);
+                }
+            }
+
+            // 2. Try OAuth2 if not authenticated yet and OAuth2 is configured
+            if (!authenticated && options.OAuth2.IsConfigured)
+            {
+                try
+                {
+                    var accessToken = await GetOAuthAccessTokenAsync(options, cancellationToken);
+                    await smtpClient.AuthenticateAsync(
+                        new SaslMechanismOAuth2(options.Username, accessToken),
+                        cancellationToken);
+                    authenticated = true;
+                }
+                catch (Exception oauthEx)
+                {
+                    logger.LogWarning(
+                        oauthEx,
+                        "SMTP OAuth2 authentication failed for '{Username}'.",
+                        options.Username);
+                }
+            }
+
+            if (!authenticated)
+            {
+                throw new InvalidOperationException(
+                    "SMTP authentication failed with both App Password and OAuth2. Please check your dotnet user-secrets Email:Password or OAuth2 keys.");
+            }
+
+            var serverMessageId = await smtpClient.SendAsync(mimeMessage, cancellationToken);
+            await smtpClient.DisconnectAsync(quit: true, cancellationToken);
+
+            logger.LogInformation(
+                "Sent email '{Subject}' to '{Recipient}'. ServerMessageId: {ServerMessageId}",
+                message.Subject,
+                message.To,
+                serverMessageId);
         }
-        else if (options.OAuth2.IsConfigured)
+        catch (Exception ex)
         {
-            var accessToken = await GetOAuthAccessTokenAsync(options, cancellationToken);
-            await smtpClient.AuthenticateAsync(
-                new SaslMechanismOAuth2(options.Username, accessToken),
-                cancellationToken);
+            logger.LogError(
+                ex,
+                "SMTP email delivery failed for '{Subject}' to '{Recipient}'. (Gmail Error: Bad Credentials or revoked App Password).",
+                message.Subject,
+                message.To);
+
+            logger.LogWarning(
+                "\n==========================================================\n" +
+                "[SMTP FAILURE FALLBACK - EMAIL CONTENT & OTP]\n" +
+                "To: {Recipient}\n" +
+                "Subject: {Subject}\n\n" +
+                "Body:\n{TextBody}\n" +
+                "==========================================================\n",
+                message.To,
+                message.Subject,
+                message.TextBody);
+
+            throw;
         }
-
-        var serverMessageId = await smtpClient.SendAsync(mimeMessage, cancellationToken);
-        await smtpClient.DisconnectAsync(quit: true, cancellationToken);
-
-        logger.LogInformation(
-            "Sent email {Subject} to {Recipient}. ServerMessageId: {ServerMessageId}",
-            message.Subject,
-            message.To,
-            serverMessageId);
     }
 
     private async Task<string> GetOAuthAccessTokenAsync(

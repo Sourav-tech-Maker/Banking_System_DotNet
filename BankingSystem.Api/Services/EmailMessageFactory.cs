@@ -5,47 +5,47 @@ namespace BankingSystem.Api.Services;
 
 internal static class EmailMessageFactory
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new()
+  private static readonly JsonSerializerOptions SerializerOptions = new()
+  {
+    PropertyNameCaseInsensitive = true
+  };
+
+  public static EmailMessage? Create(string eventType, string payloadJson, DateTime now) =>
+      eventType switch
+      {
+        "EmailVerificationRequested" => CreateOtpEmail(payloadJson, now, isBeneficiary: false),
+        "BeneficiaryVerificationRequested" => CreateOtpEmail(payloadJson, now, isBeneficiary: true),
+        "TransferOtpRequested" => CreateTransferOtpEmail(payloadJson, now),
+        "RegistrationWelcomeRequested" => CreateWelcomeEmail(payloadJson),
+        "NewDeviceLoginDetected" => CreateNewDeviceEmail(payloadJson),
+        "KycStatusUpdated" => CreateKycEmail(payloadJson),
+        "TransferDebitNotification" => CreateTransferDebitEmail(payloadJson),
+        "TransferCreditNotification" => CreateTransferCreditEmail(payloadJson),
+        _ => throw new InvalidOperationException(
+              $"Unsupported email event type '{eventType}'.")
+      };
+
+  private static EmailMessage? CreateOtpEmail(string payloadJson, DateTime now, bool isBeneficiary)
+  {
+    var payload = Deserialize<EmailVerificationPayload>(payloadJson);
+    if (payload.ExpiresAtUtc <= now)
     {
-        PropertyNameCaseInsensitive = true
-    };
+      return null;
+    }
 
-    public static EmailMessage? Create(string eventType, string payloadJson, DateTime now) =>
-        eventType switch
-        {
-            "EmailVerificationRequested" => CreateOtpEmail(payloadJson, now, isBeneficiary: false),
-            "BeneficiaryVerificationRequested" => CreateOtpEmail(payloadJson, now, isBeneficiary: true),
-            "TransferOtpRequested" => CreateTransferOtpEmail(payloadJson, now),
-            "RegistrationWelcomeRequested" => CreateWelcomeEmail(payloadJson),
-            "NewDeviceLoginDetected" => CreateNewDeviceEmail(payloadJson),
-            "KycStatusUpdated" => CreateKycEmail(payloadJson),
-            "TransferDebitNotification" => CreateTransferDebitEmail(payloadJson),
-            "TransferCreditNotification" => CreateTransferCreditEmail(payloadJson),
-            _ => throw new InvalidOperationException(
-                $"Unsupported email event type '{eventType}'.")
-        };
-
-    private static EmailMessage? CreateOtpEmail(string payloadJson, DateTime now, bool isBeneficiary)
-    {
-        var payload = Deserialize<EmailVerificationPayload>(payloadJson);
-        if (payload.ExpiresAtUtc <= now)
-        {
-            return null;
-        }
-
-        var encodedName = WebUtility.HtmlEncode(payload.Username);
-        var encodedCode = WebUtility.HtmlEncode(payload.VerificationCode);
-        var emailTitle = isBeneficiary ? "Beneficiary verification" : "Email verification";
-        var verificationPurpose = isBeneficiary
-            ? "beneficiary verification"
-            : "email verification";
-        var instruction = isBeneficiary
-            ? "Use this code to approve and add the beneficiary."
-            : "Use this code to finish registering your YONO App account.";
-        var ignoreMessage = isBeneficiary
-            ? "If you did not request this beneficiary, secure your account immediately."
-            : "If you did not create this account, you can safely ignore this email.";
-        var text = $$"""
+    var encodedName = WebUtility.HtmlEncode(payload.Username);
+    var encodedCode = WebUtility.HtmlEncode(payload.VerificationCode);
+    var emailTitle = isBeneficiary ? "Beneficiary verification" : "Email verification";
+    var verificationPurpose = isBeneficiary
+        ? "beneficiary verification"
+        : "email verification";
+    var instruction = isBeneficiary
+        ? "Use this code to approve and add the beneficiary."
+        : "Use this code to finish registering your YONO App account.";
+    var ignoreMessage = isBeneficiary
+        ? "If you did not request this beneficiary, secure your account immediately."
+        : "If you did not create this account, you can safely ignore this email.";
+    var text = $$"""
             Hello {{payload.Username}},
 
             Your YONO App {{verificationPurpose}} code is: {{payload.VerificationCode}}
@@ -54,7 +54,7 @@ internal static class EmailMessageFactory
 
             {{ignoreMessage}}
             """;
-        var html = $$"""
+    var html = $$"""
             <!doctype html>
             <html lang="en">
             <body style="margin:0;padding:0;background:#f4f4f7;font-family:Segoe UI,Arial,sans-serif;color:#1f2937">
@@ -80,27 +80,27 @@ internal static class EmailMessageFactory
             </html>
             """;
 
-        return new EmailMessage(
-            payload.To,
-            isBeneficiary ? "Verify Your Beneficiary" : "Verify Your Email",
-            text,
-            html);
+    return new EmailMessage(
+        payload.To,
+        isBeneficiary ? "Verify Your Beneficiary" : "Verify Your Email",
+        text,
+        html);
+  }
+
+  private static EmailMessage? CreateTransferOtpEmail(string payloadJson, DateTime now)
+  {
+    var payload = Deserialize<TransferOtpPayload>(payloadJson);
+    if (payload.ExpiresAtUtc <= now)
+    {
+      return null;
     }
 
-    private static EmailMessage? CreateTransferOtpEmail(string payloadJson, DateTime now)
-    {
-        var payload = Deserialize<TransferOtpPayload>(payloadJson);
-        if (payload.ExpiresAtUtc <= now)
-        {
-            return null;
-        }
+    var encodedName = WebUtility.HtmlEncode(payload.Username);
+    var encodedRecipient = WebUtility.HtmlEncode(payload.RecipientName ?? "Beneficiary");
+    var encodedCode = WebUtility.HtmlEncode(payload.OtpCode);
+    var formattedAmount = payload.Amount.ToString("N2");
 
-        var encodedName = WebUtility.HtmlEncode(payload.Username);
-        var encodedRecipient = WebUtility.HtmlEncode(payload.RecipientName ?? "Beneficiary");
-        var encodedCode = WebUtility.HtmlEncode(payload.OtpCode);
-        var formattedAmount = payload.Amount.ToString("N2");
-
-        var text = $$"""
+    var text = $$"""
             Hello {{payload.Username}},
 
             Your OTP to authorize fund transfer of ₹{{formattedAmount}} to {{payload.RecipientName}} is: {{payload.OtpCode}}
@@ -110,7 +110,7 @@ internal static class EmailMessageFactory
             If you did not initiate this transaction, please contact bank support immediately.
             """;
 
-        var html = $$"""
+    var html = $$"""
             <!doctype html>
             <html lang="en">
             <body style="margin:0;padding:0;background:#f4f4f7;font-family:Segoe UI,Arial,sans-serif;color:#1f2937">
@@ -137,14 +137,14 @@ internal static class EmailMessageFactory
             </html>
             """;
 
-        return new EmailMessage(payload.To, "OTP for Fund Transfer Authorization", text, html);
-    }
+    return new EmailMessage(payload.To, "OTP for Fund Transfer Authorization", text, html);
+  }
 
-    private static EmailMessage CreateWelcomeEmail(string payloadJson)
-    {
-        var payload = Deserialize<WelcomePayload>(payloadJson);
-        var encodedName = WebUtility.HtmlEncode(payload.Username);
-        var text = $$"""
+  private static EmailMessage CreateWelcomeEmail(string payloadJson)
+  {
+    var payload = Deserialize<WelcomePayload>(payloadJson);
+    var encodedName = WebUtility.HtmlEncode(payload.Username);
+    var text = $$"""
             Dear {{payload.Username}},
 
             Welcome to YONO App. Your email has been verified and your account is ready to use.
@@ -154,7 +154,7 @@ internal static class EmailMessageFactory
             Regards,
             YONO App Team
             """;
-        var html = $$"""
+    var html = $$"""
             <div style="max-width:600px;margin:auto;font-family:Segoe UI,Arial,sans-serif;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;color:#1f2937">
               <div style="padding:22px;text-align:center;background:#1e40af;color:#fff"><h2 style="margin:0">YONO App</h2></div>
               <div style="padding:28px">
@@ -166,21 +166,21 @@ internal static class EmailMessageFactory
             </div>
             """;
 
-        return new EmailMessage(
-            payload.To,
-            "Welcome to YONO App - Registration Successful",
-            text,
-            html);
-    }
+    return new EmailMessage(
+        payload.To,
+        "Welcome to YONO App - Registration Successful",
+        text,
+        html);
+  }
 
-    private static EmailMessage CreateNewDeviceEmail(string payloadJson)
-    {
-        var payload = Deserialize<NewDevicePayload>(payloadJson);
-        var encodedName = WebUtility.HtmlEncode(payload.Username);
-        var encodedIp = WebUtility.HtmlEncode(payload.IpAddress);
-        var encodedDevice = WebUtility.HtmlEncode(payload.UserAgent);
-        var occurredAt = payload.OccurredAtUtc.ToString("u");
-        var text = $$"""
+  private static EmailMessage CreateNewDeviceEmail(string payloadJson)
+  {
+    var payload = Deserialize<NewDevicePayload>(payloadJson);
+    var encodedName = WebUtility.HtmlEncode(payload.Username);
+    var encodedIp = WebUtility.HtmlEncode(payload.IpAddress);
+    var encodedDevice = WebUtility.HtmlEncode(payload.UserAgent);
+    var occurredAt = payload.OccurredAtUtc.ToString("u");
+    var text = $$"""
             Hello {{payload.Username}},
 
             Your account was logged in from a new device.
@@ -190,7 +190,7 @@ internal static class EmailMessageFactory
 
             If this was not you, change your password immediately.
             """;
-        var html = $$"""
+    var html = $$"""
             <div style="max-width:600px;margin:auto;font-family:Segoe UI,Arial,sans-serif;color:#1f2937">
               <h2>New device login</h2>
               <p>Hello <strong>{{encodedName}}</strong>,</p>
@@ -204,30 +204,30 @@ internal static class EmailMessageFactory
             </div>
             """;
 
-        return new EmailMessage(payload.To, "New Device Login Detected", text, html);
-    }
+    return new EmailMessage(payload.To, "New Device Login Detected", text, html);
+  }
 
-    private static EmailMessage CreateKycEmail(string payloadJson)
-    {
-        var payload = Deserialize<KycStatusPayload>(payloadJson);
-        var encodedName = WebUtility.HtmlEncode(payload.Username);
-        var statusLower = payload.Status.ToLowerInvariant();
-        var isApproved = payload.Status == "APPROVED";
-        
-        var subject = isApproved ? "KYC Approved - YONO App" : "KYC Rejected - YONO App";
-        var statusMessage = isApproved 
-            ? "Your KYC application has been approved. Your bank account is now fully active for transactions."
-            : "Your KYC application was rejected.";
-            
-        var rejectReasonText = !isApproved && !string.IsNullOrWhiteSpace(payload.RejectReason)
-            ? $"\nRejection Reason: {payload.RejectReason}\n\nYou may resubmit your KYC application after the cooldown period."
-            : "";
-            
-        var rejectReasonHtml = !isApproved && !string.IsNullOrWhiteSpace(payload.RejectReason)
-            ? $"<div style=\"margin:22px 0;padding:16px;border-left:4px solid #dc2626;background:#fef2f2\"><strong>Rejection Reason:</strong> {WebUtility.HtmlEncode(payload.RejectReason)}<br><br>You may resubmit your KYC application after the cooldown period.</div>"
-            : "";
+  private static EmailMessage CreateKycEmail(string payloadJson)
+  {
+    var payload = Deserialize<KycStatusPayload>(payloadJson);
+    var encodedName = WebUtility.HtmlEncode(payload.Username);
+    var statusLower = payload.Status.ToLowerInvariant();
+    var isApproved = payload.Status == "APPROVED";
 
-        var text = $$"""
+    var subject = isApproved ? "KYC Approved - YONO App" : "KYC Rejected - YONO App";
+    var statusMessage = isApproved
+        ? "Your KYC application has been approved. Your bank account is now fully active for transactions."
+        : "Your KYC application was rejected.";
+
+    var rejectReasonText = !isApproved && !string.IsNullOrWhiteSpace(payload.RejectReason)
+        ? $"\nRejection Reason: {payload.RejectReason}\n\nYou may resubmit your KYC application after the cooldown period."
+        : "";
+
+    var rejectReasonHtml = !isApproved && !string.IsNullOrWhiteSpace(payload.RejectReason)
+        ? $"<div style=\"margin:22px 0;padding:16px;border-left:4px solid #dc2626;background:#fef2f2\"><strong>Rejection Reason:</strong> {WebUtility.HtmlEncode(payload.RejectReason)}<br><br>You may resubmit your KYC application after the cooldown period.</div>"
+        : "";
+
+    var text = $$"""
             Hello {{payload.Username}},
 
             {{statusMessage}}
@@ -236,8 +236,8 @@ internal static class EmailMessageFactory
             Regards,
             YONO App Team
             """;
-            
-        var html = $$"""
+
+    var html = $$"""
             <div style="max-width:600px;margin:auto;font-family:Segoe UI,Arial,sans-serif;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;color:#1f2937">
               <div style="padding:22px;text-align:center;background:#1e40af;color:#fff"><h2 style="margin:0">YONO App - KYC {{payload.Status}}</h2></div>
               <div style="padding:28px">
@@ -249,25 +249,25 @@ internal static class EmailMessageFactory
             </div>
             """;
 
-        return new EmailMessage(payload.To, subject, text, html);
-    }
+    return new EmailMessage(payload.To, subject, text, html);
+  }
 
-    private static EmailMessage CreateTransferDebitEmail(string payloadJson)
-    {
-        var payload = Deserialize<TransferDebitPayload>(payloadJson);
-        var encodedName = WebUtility.HtmlEncode(payload.Username);
-        var encodedAcc = WebUtility.HtmlEncode(payload.AccountNumber);
-        var encodedRecipientAcc = WebUtility.HtmlEncode(payload.RecipientAccount);
-        var encodedRecipientName = WebUtility.HtmlEncode(payload.RecipientName ?? "Beneficiary Account");
-        var encodedRef = WebUtility.HtmlEncode(payload.TransactionRef);
+  private static EmailMessage CreateTransferDebitEmail(string payloadJson)
+  {
+    var payload = Deserialize<TransferDebitPayload>(payloadJson);
+    var encodedName = WebUtility.HtmlEncode(payload.Username);
+    var encodedAcc = WebUtility.HtmlEncode(payload.AccountNumber);
+    var encodedRecipientAcc = WebUtility.HtmlEncode(payload.RecipientAccount);
+    var encodedRecipientName = WebUtility.HtmlEncode(payload.RecipientName ?? "Beneficiary Account");
+    var encodedRef = WebUtility.HtmlEncode(payload.TransactionRef);
 
-        var formattedAmount = payload.Amount.ToString("N2");
-        var formattedBalance = payload.CurrentBalance.ToString("N2");
-        var formattedDate = payload.OccurredAtUtc.ToString("dd MMM yyyy, hh:mm tt") + " UTC";
+    var formattedAmount = payload.Amount.ToString("N2");
+    var formattedBalance = payload.CurrentBalance.ToString("N2");
+    var formattedDate = payload.OccurredAtUtc.ToString("dd MMM yyyy, hh:mm tt") + " UTC";
 
-        var subject = $"Debit Alert: ₹{formattedAmount} debited from A/c #{encodedAcc}";
+    var subject = $"Debit Alert: ₹{formattedAmount} debited from A/c #{encodedAcc}";
 
-        var text = $$"""
+    var text = $$"""
             Hello {{payload.Username}},
 
             An amount of ₹{{formattedAmount}} has been debited from your account.
@@ -283,7 +283,7 @@ internal static class EmailMessageFactory
             YONO App Team
             """;
 
-        var html = $$"""
+    var html = $$"""
             <div style="max-width:600px;margin:auto;font-family:'Segoe UI',Arial,sans-serif;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;color:#0f172a;background:#ffffff">
               <div style="padding:24px;text-align:center;background:#dc2626;color:#ffffff">
                 <h2 style="margin:0;font-size:20px;font-weight:700">Debit Notification</h2>
@@ -309,25 +309,25 @@ internal static class EmailMessageFactory
             </div>
             """;
 
-        return new EmailMessage(payload.To, subject, text, html);
-    }
+    return new EmailMessage(payload.To, subject, text, html);
+  }
 
-    private static EmailMessage CreateTransferCreditEmail(string payloadJson)
-    {
-        var payload = Deserialize<TransferCreditPayload>(payloadJson);
-        var encodedName = WebUtility.HtmlEncode(payload.Username);
-        var encodedAcc = WebUtility.HtmlEncode(payload.AccountNumber);
-        var encodedSenderAcc = WebUtility.HtmlEncode(payload.SenderAccount);
-        var encodedSenderName = WebUtility.HtmlEncode(payload.SenderName ?? "System / Sender Account");
-        var encodedRef = WebUtility.HtmlEncode(payload.TransactionRef);
+  private static EmailMessage CreateTransferCreditEmail(string payloadJson)
+  {
+    var payload = Deserialize<TransferCreditPayload>(payloadJson);
+    var encodedName = WebUtility.HtmlEncode(payload.Username);
+    var encodedAcc = WebUtility.HtmlEncode(payload.AccountNumber);
+    var encodedSenderAcc = WebUtility.HtmlEncode(payload.SenderAccount);
+    var encodedSenderName = WebUtility.HtmlEncode(payload.SenderName ?? "System / Sender Account");
+    var encodedRef = WebUtility.HtmlEncode(payload.TransactionRef);
 
-        var formattedAmount = payload.Amount.ToString("N2");
-        var formattedBalance = payload.CurrentBalance.ToString("N2");
-        var formattedDate = payload.OccurredAtUtc.ToString("dd MMM yyyy, hh:mm tt") + " UTC";
+    var formattedAmount = payload.Amount.ToString("N2");
+    var formattedBalance = payload.CurrentBalance.ToString("N2");
+    var formattedDate = payload.OccurredAtUtc.ToString("dd MMM yyyy, hh:mm tt") + " UTC";
 
-        var subject = $"Credit Alert: ₹{formattedAmount} credited to A/c #{encodedAcc}";
+    var subject = $"Credit Alert: ₹{formattedAmount} credited to A/c #{encodedAcc}";
 
-        var text = $$"""
+    var text = $$"""
             Hello {{payload.Username}},
 
             Great news! An amount of ₹{{formattedAmount}} has been credited to your account.
@@ -343,7 +343,7 @@ internal static class EmailMessageFactory
             YONO App Team
             """;
 
-        var html = $$"""
+    var html = $$"""
             <div style="max-width:600px;margin:auto;font-family:'Segoe UI',Arial,sans-serif;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;color:#0f172a;background:#ffffff">
               <div style="padding:24px;text-align:center;background:#16a34a;color:#ffffff">
                 <h2 style="margin:0;font-size:20px;font-weight:700">Credit Notification</h2>
@@ -367,65 +367,65 @@ internal static class EmailMessageFactory
             </div>
             """;
 
-        return new EmailMessage(payload.To, subject, text, html);
-    }
+    return new EmailMessage(payload.To, subject, text, html);
+  }
 
-    private static T Deserialize<T>(string payloadJson)
-    {
-        var payload = JsonSerializer.Deserialize<T>(payloadJson, SerializerOptions);
-        return payload ?? throw new InvalidOperationException(
-            $"Could not deserialize outbox payload as {typeof(T).Name}.");
-    }
+  private static T Deserialize<T>(string payloadJson)
+  {
+    var payload = JsonSerializer.Deserialize<T>(payloadJson, SerializerOptions);
+    return payload ?? throw new InvalidOperationException(
+        $"Could not deserialize outbox payload as {typeof(T).Name}.");
+  }
 
-    private sealed record EmailVerificationPayload(
-        string To,
-        string Username,
-        string VerificationCode,
-        DateTime ExpiresAtUtc);
+  private sealed record EmailVerificationPayload(
+      string To,
+      string Username,
+      string VerificationCode,
+      DateTime ExpiresAtUtc);
 
-    private sealed record WelcomePayload(string To, string Username);
+  private sealed record WelcomePayload(string To, string Username);
 
-    private sealed record NewDevicePayload(
-        string To,
-        string Username,
-        string IpAddress,
-        string UserAgent,
-        DateTime OccurredAtUtc);
+  private sealed record NewDevicePayload(
+      string To,
+      string Username,
+      string IpAddress,
+      string UserAgent,
+      DateTime OccurredAtUtc);
 
-    private sealed record KycStatusPayload(
-        string To,
-        string Username,
-        string Status,
-        string? RejectReason);
+  private sealed record KycStatusPayload(
+      string To,
+      string Username,
+      string Status,
+      string? RejectReason);
 
-    private sealed record TransferDebitPayload(
-        string To,
-        string Username,
-        string AccountNumber,
-        decimal Amount,
-        string RecipientAccount,
-        string? RecipientName,
-        string TransactionRef,
-        decimal CurrentBalance,
-        DateTime OccurredAtUtc);
+  private sealed record TransferDebitPayload(
+      string To,
+      string Username,
+      string AccountNumber,
+      decimal Amount,
+      string RecipientAccount,
+      string? RecipientName,
+      string TransactionRef,
+      decimal CurrentBalance,
+      DateTime OccurredAtUtc);
 
-    private sealed record TransferCreditPayload(
-        string To,
-        string Username,
-        string AccountNumber,
-        decimal Amount,
-        string SenderAccount,
-        string? SenderName,
-        string TransactionRef,
-        decimal CurrentBalance,
-        DateTime OccurredAtUtc);
+  private sealed record TransferCreditPayload(
+      string To,
+      string Username,
+      string AccountNumber,
+      decimal Amount,
+      string SenderAccount,
+      string? SenderName,
+      string TransactionRef,
+      decimal CurrentBalance,
+      DateTime OccurredAtUtc);
 
-    private sealed record TransferOtpPayload(
-        string To,
-        string Username,
-        string? RecipientName,
-        decimal Amount,
-        string OtpCode,
-        DateTime ExpiresAtUtc);
+  private sealed record TransferOtpPayload(
+      string To,
+      string Username,
+      string? RecipientName,
+      decimal Amount,
+      string OtpCode,
+      DateTime ExpiresAtUtc);
 }
 

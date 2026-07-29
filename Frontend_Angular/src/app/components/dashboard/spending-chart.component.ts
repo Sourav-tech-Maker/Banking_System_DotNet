@@ -1,5 +1,6 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { CurrencyService } from '../../services/currency.service';
 
 @Component({
   selector: 'app-spending-chart',
@@ -25,7 +26,7 @@ import { CommonModule } from '@angular/common';
           ></div>
           <div class="absolute inset-8 flex flex-col items-center justify-center rounded-full bg-white shadow-inner">
             <p class="text-xl font-bold text-slate-950">
-              ₹{{ totalExpense | number:'1.0-0' }}
+              {{ cs.format(totalExpense) }}
             </p>
             <p class="mt-1 text-xs text-slate-500">Total Expense</p>
           </div>
@@ -43,7 +44,7 @@ import { CommonModule } from '@angular/common';
               </span>
             </div>
             <span class="text-sm font-bold text-slate-950">
-              ₹{{ category.amount | number:'1.0-0' }}
+              {{ cs.format(category.amount) }}
             </span>
             <span class="text-sm font-semibold text-slate-500">
               {{ category.percentage }}%
@@ -67,6 +68,8 @@ import { CommonModule } from '@angular/common';
   `
 })
 export class SpendingChartComponent {
+  protected readonly cs = inject(CurrencyService);
+
   @Input() set analytics(val: any) {
     this.categories = val?.categories || [];
     this.totalExpense = val?.totalExpense || 0;

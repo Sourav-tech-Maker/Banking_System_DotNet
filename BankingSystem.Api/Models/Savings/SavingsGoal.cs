@@ -1,5 +1,4 @@
-using System;
-using System.Collections.Generic;
+
 using BankingSystem.Api.Models.Auth;
 
 namespace BankingSystem.Api.Models.Savings

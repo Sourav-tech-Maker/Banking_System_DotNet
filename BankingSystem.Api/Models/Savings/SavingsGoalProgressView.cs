@@ -1,5 +1,3 @@
-using System;
-
 namespace BankingSystem.Api.Models.Savings
 {
     public class SavingsGoalProgressView

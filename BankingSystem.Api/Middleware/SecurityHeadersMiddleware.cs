@@ -1,6 +1,3 @@
-using Microsoft.AspNetCore.Http;
-using System.Threading.Tasks;
-
 namespace BankingSystem.Api.Middleware;
 
 public sealed class SecurityHeadersMiddleware(RequestDelegate next)

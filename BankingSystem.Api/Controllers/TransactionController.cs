@@ -1,26 +1,20 @@
-using System;
-using System.Collections.Generic;
-using System.Data;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using BankingSystem.Api.Data;
 using BankingSystem.Api.DTOs.Transaction;
 using BankingSystem.Api.Models.Banking;
 using BankingSystem.Api.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 
-namespace BankingSystem.Api.Controllers
+namespace BankingSystem.Api.Controllers;
+
+[Authorize]
+[ApiController]
+[Route("api/[controller]")]
+public sealed class TransactionController(AppDbContext context, ITransferOtpService transferOtpService) : ControllerBase
 {
-    [Authorize]
-    [ApiController]
-    [Route("api/[controller]")]
-    public sealed class TransactionController(AppDbContext context, ITransferOtpService transferOtpService) : ControllerBase
-    {
         [HttpPost("initiate-transfer")]
         public async Task<IActionResult> InitiateTransfer(
             [FromBody] InitiateTransferRequest request,
@@ -490,4 +484,3 @@ namespace BankingSystem.Api.Controllers
             };
         }
     }
-}

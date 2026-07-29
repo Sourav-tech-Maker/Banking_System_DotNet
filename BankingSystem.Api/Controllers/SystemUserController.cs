@@ -1,19 +1,15 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using BankingSystem.Api.DTOs.SystemUser;
 using BankingSystem.Api.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
-namespace BankingSystem.Api.Controllers
+namespace BankingSystem.Api.Controllers;
+
+[Authorize(Roles = "systemUser,SYSTEMUSER")]
+[ApiController]
+[Route("api/system")]
+public sealed class SystemUserController(ISystemUserService systemUserService) : ControllerBase
 {
-    [Authorize(Roles = "systemUser,SYSTEMUSER")]
-    [ApiController]
-    [Route("api/system")]
-    public sealed class SystemUserController(ISystemUserService systemUserService) : ControllerBase
-    {
         private bool TryGetUserId(out Guid userId)
         {
             userId = Guid.Empty;
@@ -184,4 +180,3 @@ namespace BankingSystem.Api.Controllers
             return Ok(logs);
         }
     }
-}

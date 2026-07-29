@@ -8,6 +8,7 @@ import { CurrencyService } from '../services/currency.service';
 import { SessionTimeoutService } from '../services/session-timeout.service';
 import {
   LucideArrowRightLeft,
+  LucideClock,
   LucideLandmark,
   LucideLayoutDashboard,
   LucideLogOut,
@@ -47,6 +48,7 @@ import { SystemConsoleComponent } from './system-console/system-console.componen
     CommonModule,
     FormsModule,
     LucideArrowRightLeft,
+    LucideClock,
     LucideLandmark,
     LucideLayoutDashboard,
     LucideLogOut,
@@ -192,6 +194,26 @@ import { SystemConsoleComponent } from './system-console/system-console.componen
           </div>
 
           <div class="flex shrink-0 items-center gap-2 sm:gap-3">
+            <!-- Auto Session Timeout Countdown Pill -->
+            <div 
+              class="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold border transition-all duration-300 shadow-xs cursor-pointer select-none"
+              [ngClass]="sessionService.isExpiringSoon() ? 'bg-rose-500/15 border-rose-500/50 text-rose-600 dark:text-rose-400 animate-pulse ring-2 ring-rose-500/30' : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'"
+              (click)="sessionService.extendSession()"
+              [attr.title]="'Session timeout set to ' + sessionService.timeoutMinutes() + ' mins. Click to extend timer!'"
+            >
+              <svg lucideClock class="size-3.5 shrink-0" [ngClass]="sessionService.isExpiringSoon() ? 'text-rose-500 animate-bounce' : 'text-indigo-500'"></svg>
+              <span class="font-mono font-bold tracking-tight">{{ sessionService.remainingTimeFormatted() }}</span>
+              
+              <button 
+                *ngIf="sessionService.isExpiringSoon()"
+                type="button"
+                (click)="$event.stopPropagation(); sessionService.extendSession()"
+                class="ml-1 text-[10px] font-extrabold uppercase tracking-wider bg-rose-600 hover:bg-rose-700 text-white px-2.5 py-0.5 rounded-full transition shadow-md animate-pulse"
+              >
+                Extend
+              </button>
+            </div>
+
             <!-- Theme Toggle -->
             <button
               type="button"
@@ -221,6 +243,20 @@ import { SystemConsoleComponent } from './system-console/system-console.componen
         <!-- ROUTED CONTENT CONTAINER -->
         <main class="flex-1 overflow-y-auto bg-slate-50 px-3 py-4 dark:bg-slate-900 dark:text-slate-100 sm:px-5 sm:py-6 lg:px-8">
           <div class="mx-auto w-full max-w-[1440px]">
+            <!-- Session Expiration Warning Banner (shows when <= 1 min remaining) -->
+            <div *ngIf="sessionService.isExpiringSoon()" class="mb-4 rounded-xl border border-rose-400/80 bg-rose-500/10 p-3.5 text-rose-900 shadow-md dark:border-rose-800/80 dark:bg-rose-950/60 dark:text-rose-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-pulse ring-1 ring-rose-500/20">
+              <div class="flex items-center gap-2.5 text-xs font-semibold sm:text-sm">
+                <span class="text-base">⚠️</span>
+                <span>Session expiring in <strong class="font-mono text-rose-600 dark:text-rose-400 text-sm font-bold">{{ sessionService.remainingTimeFormatted() }}</strong>! Click Extend Session to avoid automatic logout.</span>
+              </div>
+              <button 
+                type="button" 
+                (click)="sessionService.extendSession()" 
+                class="shrink-0 rounded-lg bg-rose-600 px-4 py-1.5 text-xs font-bold text-white shadow-md hover:bg-rose-700 transition active:scale-95"
+              >
+                Extend Session
+              </button>
+            </div>
             <!-- SKELETON / LOADING -->
             <div *ngIf="loading() && activeView() === 'dashboard'" class="space-y-6">
               <div class="grid gap-4 md:grid-cols-4">
@@ -325,7 +361,7 @@ import { SystemConsoleComponent } from './system-console/system-console.componen
               >
                 <option value="">Select source account</option>
                 <option *ngFor="let acc of userAccounts()" [value]="acc.id">
-                  {{ acc.accountType }} - A/C {{ acc.id.slice(-6).toUpperCase() }} (Bal: ₹{{ acc.balance | number:'1.0-0' }})
+                  {{ acc.accountType }} - A/C {{ cs.maskAccount(acc.id.slice(-6).toUpperCase()) }} (Bal: {{ cs.format(acc.balance) }})
                 </option>
               </select>
             </div>
@@ -346,16 +382,24 @@ import { SystemConsoleComponent } from './system-console/system-console.componen
 
             <!-- Amount -->
             <div>
-              <label for="sendAmt" class="block text-sm font-medium text-slate-700 dark:text-slate-300">Amount (INR)</label>
+              <div class="flex items-center justify-between">
+                <label for="sendAmt" class="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Amount in {{ cs.currentCurrency() }} ({{ cs.getSymbol() }})
+                </label>
+                <span *ngIf="cs.currentCurrency() !== 'INR' && sendForm.amount > 0" class="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                  ≈ ₹{{ cs.convertSelectedToInr(sendForm.amount) | number:'1.2-2' }} INR
+                </span>
+              </div>
               <input
                 id="sendAmt"
                 type="number"
                 name="amount"
                 required
-                min="1"
+                min="0.01"
+                step="0.01"
                 [(ngModel)]="sendForm.amount"
                 class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-                placeholder="₹1,000"
+                [placeholder]="cs.getSymbol() + '100'"
               />
             </div>
 
@@ -429,7 +473,7 @@ export class HomeComponent implements OnInit {
   private readonly router = inject(Router);
   protected readonly ts = inject(TranslationService);
   protected readonly cs = inject(CurrencyService);
-  private readonly sessionService = inject(SessionTimeoutService);
+  protected readonly sessionService = inject(SessionTimeoutService);
 
   protected activeView = signal('dashboard');
   protected loading = signal(true);
@@ -585,11 +629,12 @@ export class HomeComponent implements OnInit {
     this.sendSuccess.set('');
 
     const idempotencyKey = `transfer-${this.sendForm.fromAccount}-${crypto.randomUUID()}`;
+    const amountInInr = this.cs.convertSelectedToInr(this.sendForm.amount);
 
     this.apiService.initiateTransfer({
       fromAccount: this.sendForm.fromAccount,
       toAccount: this.sendForm.toAccount,
-      amount: this.sendForm.amount,
+      amount: amountInInr,
       idempotencyKey: idempotencyKey
     }).subscribe({
       next: (res) => {

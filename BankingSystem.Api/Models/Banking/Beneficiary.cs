@@ -1,4 +1,4 @@
-using System;
+
 using BankingSystem.Api.Models.Auth;
 
 namespace BankingSystem.Api.Models.Banking
