@@ -7,7 +7,7 @@ import { Observable } from 'rxjs';
 })
 export class ApiService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = 'http://localhost:5065'; // Matches the C# backend HTTP port
+  private readonly baseUrl = 'https://banking-system-dotnet.onrender.com';
 
 
   private getOptions() {
