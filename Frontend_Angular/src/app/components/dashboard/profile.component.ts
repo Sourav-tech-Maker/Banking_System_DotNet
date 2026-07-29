@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
+import { TranslationService } from '../../services/translation.service';
 
 @Component({
   selector: 'app-profile-view',
@@ -11,8 +12,8 @@ import { ApiService } from '../../services/api.service';
     <div class="space-y-6">
       <div class="flex items-center justify-between gap-4">
         <div>
-          <h1 class="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">My Profile & Settings</h1>
-          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Manage your user registration, credentials, accounts, and KYC verification status</p>
+          <h1 class="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">{{ ts.t('profile.headerTitle') }}</h1>
+          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ ts.t('profile.headerSubtitle') }}</p>
         </div>
 
         <div class="flex gap-2">
@@ -41,18 +42,18 @@ import { ApiService } from '../../services/api.service';
       <div *ngIf="!loading()" class="grid gap-6 md:grid-cols-[1fr_1.5fr]">
         <!-- Account Info -->
         <div class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm space-y-4 dark:border-slate-800 dark:bg-slate-950">
-          <h2 class="text-lg font-bold text-slate-950 dark:text-white">Registration Details</h2>
+          <h2 class="text-lg font-bold text-slate-950 dark:text-white">{{ ts.t('profile.regDetails') }}</h2>
           <div class="space-y-3 text-sm">
             <div>
-              <span class="block text-xs font-bold text-slate-400 uppercase">Username</span>
+              <span class="block text-xs font-bold text-slate-400 uppercase">{{ ts.t('profile.username') }}</span>
               <span class="font-bold text-slate-900 dark:text-white">{{ profile?.user?.username }}</span>
             </div>
             <div>
-              <span class="block text-xs font-bold text-slate-400 uppercase">Email</span>
+              <span class="block text-xs font-bold text-slate-400 uppercase">{{ ts.t('profile.email') }}</span>
               <span class="font-bold text-slate-900 dark:text-white">{{ profile?.user?.email }}</span>
             </div>
             <div>
-              <span class="block text-xs font-bold text-slate-400 uppercase">Account Status</span>
+              <span class="block text-xs font-bold text-slate-400 uppercase">{{ ts.t('profile.accountStatus') }}</span>
               <span
                 [ngClass]="profile?.user?.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'"
                 class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase"
@@ -208,6 +209,7 @@ import { ApiService } from '../../services/api.service';
 })
 export class ProfileViewComponent implements OnInit {
   private readonly apiService = inject(ApiService);
+  protected readonly ts = inject(TranslationService);
 
   protected profile: any = null;
   protected loading = signal(false);

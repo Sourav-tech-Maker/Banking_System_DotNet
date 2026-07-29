@@ -3,6 +3,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ApiService } from '../services/api.service';
+import { TranslationService } from '../services/translation.service';
+import { CurrencyService } from '../services/currency.service';
+import { SessionTimeoutService } from '../services/session-timeout.service';
 import {
   LucideArrowRightLeft,
   LucideLandmark,
@@ -123,7 +126,7 @@ import { SystemConsoleComponent } from './system-console/system-console.componen
               <svg *ngIf="link.id === 'goals'" lucidePiggyBank class="size-[18px]"></svg>
               <svg *ngIf="link.id === 'profile'" lucideUserRound class="size-[18px]"></svg>
               <svg *ngIf="link.id === 'settings'" lucideSettings class="size-[18px]"></svg>
-              <span>{{ link.name }}</span>
+              <span>{{ ts.t(link.navKey) }}</span>
             </button>
 
             <!-- Admin Console Link (shown if role is admin) -->
@@ -135,7 +138,7 @@ import { SystemConsoleComponent } from './system-console/system-console.componen
               class="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition text-left border border-dashed border-rose-800/40 mt-4"
             >
               <svg lucideShieldCog class="size-[18px]"></svg>
-              <span>Admin Console</span>
+              <span>{{ ts.t('nav.admin') }}</span>
             </button>
 
             <!-- SystemUser Console Link (shown if role is systemUser) -->
@@ -147,7 +150,7 @@ import { SystemConsoleComponent } from './system-console/system-console.componen
               class="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition text-left border border-dashed border-indigo-700/50 mt-2"
             >
               <svg lucideServer class="size-[18px]"></svg>
-              <span>SystemUser Console</span>
+              <span>{{ ts.t('nav.systemConsole') }}</span>
             </button>
           </nav>
         </div>
@@ -209,8 +212,8 @@ import { SystemConsoleComponent } from './system-console/system-console.componen
               class="inline-flex min-h-10 items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 sm:px-4"
             >
               <svg lucideSend class="size-4"></svg>
-              <span class="hidden sm:inline">Send Money</span>
-              <span class="sm:hidden">Send</span>
+              <span class="hidden sm:inline">{{ ts.t('dashboard.sendMoneyBtn') }}</span>
+              <span class="sm:hidden">{{ ts.t('dashboard.sendMoneyBtn') }}</span>
             </button>
           </div>
         </header>
@@ -239,10 +242,10 @@ import { SystemConsoleComponent } from './system-console/system-console.componen
                       {{ getGreetingTime() }}
                     </span>
                     <h1 class="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
-                      Welcome back, {{ user()?.username || 'Customer' }}!
+                      {{ ts.t('dashboard.welcomeBack') }}, {{ user()?.username || 'Customer' }}!
                     </h1>
                     <p class="mt-1 text-xs text-indigo-200 sm:text-sm">
-                      Here is your financial summary and real-time ledger status.
+                      {{ ts.t('dashboard.welcomeSubtitle') }}
                     </p>
                   </div>
                   <div class="hidden sm:flex size-14 items-center justify-center rounded-2xl bg-white/10 text-2xl backdrop-blur-md">
@@ -424,6 +427,9 @@ import { SystemConsoleComponent } from './system-console/system-console.componen
 export class HomeComponent implements OnInit {
   private readonly apiService = inject(ApiService);
   private readonly router = inject(Router);
+  protected readonly ts = inject(TranslationService);
+  protected readonly cs = inject(CurrencyService);
+  private readonly sessionService = inject(SessionTimeoutService);
 
   protected activeView = signal('dashboard');
   protected loading = signal(true);
@@ -454,17 +460,18 @@ export class HomeComponent implements OnInit {
   };
 
   protected sidebarLinks = [
-    { id: 'dashboard', name: 'Dashboard' },
-    { id: 'transactions', name: 'Transactions' },
-    { id: 'open-account', name: 'Open Account' },
-    { id: 'kyc', name: 'KYC Verification' },
-    { id: 'beneficiaries', name: 'Beneficiaries' },
-    { id: 'goals', name: 'Savings Goals' },
-    { id: 'profile', name: 'My Profile' },
-    { id: 'settings', name: 'Settings' }
+    { id: 'dashboard', name: 'Dashboard', navKey: 'nav.dashboard' },
+    { id: 'transactions', name: 'Transactions', navKey: 'nav.transactions' },
+    { id: 'open-account', name: 'Open Account', navKey: 'nav.openAccount' },
+    { id: 'kyc', name: 'KYC Verification', navKey: 'nav.kyc' },
+    { id: 'beneficiaries', name: 'Beneficiaries', navKey: 'nav.beneficiaries' },
+    { id: 'goals', name: 'Savings Goals', navKey: 'nav.goals' },
+    { id: 'profile', name: 'My Profile', navKey: 'nav.profile' },
+    { id: 'settings', name: 'Settings', navKey: 'nav.settings' }
   ];
 
   ngOnInit() {
+    this.sessionService.startMonitoring();
     this.checkUserSession();
     this.fetchDashboardData();
     this.loadTheme();

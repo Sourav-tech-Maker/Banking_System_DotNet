@@ -2,6 +2,7 @@ import { Component, signal, inject, OnInit, Output, EventEmitter } from '@angula
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
+import { TranslationService } from '../../services/translation.service';
 
 @Component({
   selector: 'app-kyc-verification-view',
@@ -799,9 +800,9 @@ import { ApiService } from '../../services/api.service';
                   <span class="flex size-7 items-center justify-center rounded-full bg-emerald-500 text-xs font-bold text-white shadow-xs">
                     ✓
                   </span>
-                  <span class="text-xs font-extrabold uppercase text-emerald-700 dark:text-emerald-400">Step 1: Submitted</span>
+                  <span class="text-xs font-extrabold uppercase text-emerald-700 dark:text-emerald-400">{{ ts.t('kyc.step1') }}</span>
                 </div>
-                <h5 class="text-sm font-bold text-slate-900 dark:text-white">Part-I CIF Form Filed</h5>
+                <h5 class="text-sm font-bold text-slate-900 dark:text-white">{{ ts.t('kyc.part1Filed') }}</h5>
                 <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
                   {{ kycData()?.submittedAt | date:'dd MMM yyyy, hh:mm a' }}
                 </p>
@@ -835,10 +836,10 @@ import { ApiService } from '../../services/api.service';
                     }"
                     class="text-xs font-extrabold uppercase"
                   >
-                    Step 2: Audit Review
+                    {{ ts.t('kyc.step2') }}
                   </span>
                 </div>
-                <h5 class="text-sm font-bold text-slate-900 dark:text-white">Document & Identity Check</h5>
+                <h5 class="text-sm font-bold text-slate-900 dark:text-white">{{ ts.t('kyc.docCheck') }}</h5>
                 <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
                   {{ kycStatus() === 'PENDING' ? 'Under active compliance verification' : kycStatus() === 'APPROVED' ? 'Verification successfully completed' : 'Application review rejected' }}
                 </p>
@@ -861,7 +862,7 @@ import { ApiService } from '../../services/api.service';
                     }"
                     class="flex size-7 items-center justify-center rounded-full text-xs font-bold shadow-xs"
                   >
-                    {{ kycStatus() === 'APPROVED' ? '✓' : '🔒' }}
+                    {{ kycStatus() === 'APPROVED' ? '✓' : '3' }}
                   </span>
                   <span 
                     [ngClass]="{
@@ -870,12 +871,12 @@ import { ApiService } from '../../services/api.service';
                     }"
                     class="text-xs font-extrabold uppercase"
                   >
-                    Step 3: Activation
+                    {{ ts.t('kyc.step3') }}
                   </span>
                 </div>
                 <h5 class="text-sm font-bold text-slate-900 dark:text-white">Account Creation Access</h5>
                 <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  {{ kycStatus() === 'APPROVED' ? 'Unlocked! Full banking rights enabled' : 'Requires approved identity verification' }}
+                  {{ kycStatus() === 'APPROVED' ? ts.t('kyc.fullRights') : 'Requires approved identity verification' }}
                 </p>
               </div>
 
@@ -907,12 +908,12 @@ import { ApiService } from '../../services/api.service';
                 </div>
 
                 <h2 class="mt-3 text-2xl font-extrabold text-slate-950 dark:text-white">
-                  {{ kycStatus() === 'PENDING' ? 'SBI CIF & KYC Verification Pending' : kycStatus() === 'APPROVED' ? 'Identity & CIF Fully Verified' : 'KYC Application Rejected' }}
+                  {{ kycStatus() === 'PENDING' ? 'SBI CIF & KYC Verification Pending' : kycStatus() === 'APPROVED' ? ts.t('kyc.verifiedBanner') : 'KYC Application Rejected' }}
                 </h2>
                 
                 <p class="mt-1.5 text-sm text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed">
-                  {{ kycStatus() === 'PENDING' ? 'Your  Part-I Customer Information Sheet (CIF) documents are safely stored and being reviewed by our compliance officers.' :
-                     kycStatus() === 'APPROVED' ? 'Congratulations! Your identity has been verified in compliance with banking regulations. You can now open savings or current accounts.' :
+                  {{ kycStatus() === 'PENDING' ? 'Your Part-I Customer Information Sheet (CIF) documents are safely stored and being reviewed by our compliance officers.' :
+                     kycStatus() === 'APPROVED' ? ts.t('kyc.verifiedSubtitle') :
                      'Your previous KYC application was rejected by compliance auditors.' }}
                 </p>
               </div>
@@ -924,10 +925,7 @@ import { ApiService } from '../../services/api.service';
                   (click)="openAccount()"
                   class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-extrabold text-white shadow-md transition hover:bg-emerald-700 active:scale-95 cursor-pointer"
                 >
-                  <span>🏦 Open Bank Account</span>
-                  <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                  </svg>
+                  <span>🏦 {{ ts.t('kyc.openAccountBtn') }}</span>
                 </button>
               </div>
             </div>
@@ -1032,6 +1030,7 @@ import { ApiService } from '../../services/api.service';
 })
 export class KycVerificationViewComponent implements OnInit {
   private readonly apiService = inject(ApiService);
+  protected readonly ts = inject(TranslationService);
 
   @Output() navigateToOpenAccount = new EventEmitter<void>();
 

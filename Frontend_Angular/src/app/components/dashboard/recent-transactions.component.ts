@@ -1,5 +1,7 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { TranslationService } from '../../services/translation.service';
+import { CurrencyService } from '../../services/currency.service';
 
 @Component({
   selector: 'app-recent-transactions',
@@ -9,15 +11,19 @@ import { CommonModule } from '@angular/common';
     <section class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950">
       <div class="mb-6 flex items-center justify-between gap-4">
         <div>
-          <h2 class="text-lg font-extrabold text-slate-950 dark:text-white tracking-tight">Recent Transactions</h2>
-          <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Your latest real-time account movements</p>
+          <h2 class="text-lg font-extrabold text-slate-950 dark:text-white tracking-tight">
+            {{ ts.t('dashboard.recentTransactions') }}
+          </h2>
+          <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+            {{ ts.t('dashboard.recentTxSubtitle') }}
+          </p>
         </div>
         <button
           type="button"
           (click)="onViewAll.emit()"
           class="text-xs font-bold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 transition hover:underline cursor-pointer"
         >
-          View All →
+          {{ ts.t('dashboard.viewAll') }}
         </button>
       </div>
 
@@ -25,11 +31,11 @@ import { CommonModule } from '@angular/common';
         <table class="w-full border-collapse text-left text-sm">
           <thead>
             <tr class="border-b border-slate-100 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:border-slate-800 dark:text-slate-500">
-              <th class="py-3 pr-4">Description</th>
-              <th class="py-3 px-4">Category</th>
-              <th class="py-3 px-4">Date</th>
-              <th class="py-3 px-4">Amount</th>
-              <th class="py-3 pl-4 text-right">Status</th>
+              <th class="py-3 pr-4">{{ ts.t('tx.description') }}</th>
+              <th class="py-3 px-4">{{ ts.t('tx.category') }}</th>
+              <th class="py-3 px-4">{{ ts.t('tx.date') }}</th>
+              <th class="py-3 px-4">{{ ts.t('tx.amount') }}</th>
+              <th class="py-3 pl-4 text-right">{{ ts.t('tx.status') }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100 font-medium text-slate-700 dark:divide-slate-800 dark:text-slate-300">
@@ -65,7 +71,7 @@ import { CommonModule } from '@angular/common';
                 [ngClass]="txn.direction === 'debit' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'"
                 class="py-4 px-4 font-bold text-base"
               >
-                {{ txn.direction === 'debit' ? '-' : '+' }}₹{{ txn.amount | number:'1.2-2' }}
+                {{ txn.direction === 'debit' ? '-' : '+' }}{{ cs.format(txn.amount) }}
               </td>
 
               <!-- Status -->
@@ -78,7 +84,7 @@ import { CommonModule } from '@angular/common';
                   }"
                   class="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
                 >
-                  {{ txn.status }}
+                  {{ ts.t('tx.' + (txn.status || 'completed')) }}
                 </span>
               </td>
             </tr>
@@ -90,8 +96,7 @@ import { CommonModule } from '@angular/common';
                   <div class="size-12 rounded-2xl bg-indigo-50 text-indigo-500 dark:bg-indigo-950 dark:text-indigo-400 flex items-center justify-center text-xl">
                     💸
                   </div>
-                  <p class="text-xs font-bold text-slate-600 dark:text-slate-400">No recent transactions found.</p>
-                  <p class="text-[11px] text-slate-400 dark:text-slate-500">Make your first deposit or transfer to see activities here.</p>
+                  <p class="text-xs font-bold text-slate-600 dark:text-slate-400">{{ ts.t('tx.noTransactions') }}</p>
                 </div>
               </td>
             </tr>
@@ -104,4 +109,7 @@ import { CommonModule } from '@angular/common';
 export class RecentTransactionsComponent {
   @Input() transactions: any[] = [];
   @Output() onViewAll = new EventEmitter<void>();
+
+  protected readonly ts = inject(TranslationService);
+  protected readonly cs = inject(CurrencyService);
 }
