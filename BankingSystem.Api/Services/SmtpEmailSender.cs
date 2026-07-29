@@ -51,39 +51,21 @@ public sealed class SmtpEmailSender(
             cancellationToken);
 
         var password = options.UsesGmail
-            ? options.Password.Replace(" ", string.Empty, StringComparison.Ordinal)
+            ? options.Password?.Replace(" ", string.Empty, StringComparison.Ordinal)
             : options.Password;
 
-        if (options.OAuth2.IsConfigured)
-        {
-            try
-            {
-                var accessToken = await GetOAuthAccessTokenAsync(options, cancellationToken);
-                await smtpClient.AuthenticateAsync(
-                    new SaslMechanismOAuth2(options.Username, accessToken),
-                    cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "OAuth2 authentication failed for Gmail. Falling back to App Password authentication.");
-                if (!string.IsNullOrWhiteSpace(password))
-                {
-                    await smtpClient.AuthenticateAsync(
-                        options.Username,
-                        password,
-                        cancellationToken);
-                }
-                else
-                {
-                    throw;
-                }
-            }
-        }
-        else
+        if (!string.IsNullOrWhiteSpace(password))
         {
             await smtpClient.AuthenticateAsync(
                 options.Username,
                 password,
+                cancellationToken);
+        }
+        else if (options.OAuth2.IsConfigured)
+        {
+            var accessToken = await GetOAuthAccessTokenAsync(options, cancellationToken);
+            await smtpClient.AuthenticateAsync(
+                new SaslMechanismOAuth2(options.Username, accessToken),
                 cancellationToken);
         }
 
