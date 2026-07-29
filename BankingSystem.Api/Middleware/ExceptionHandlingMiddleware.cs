@@ -70,8 +70,8 @@ public sealed class ExceptionHandlingMiddleware(
                 (apiException.StatusCode, apiException.Message, apiException.Error),
             DbUpdateConcurrencyException =>
                 (StatusCodes.Status409Conflict, "The request conflicted with another update. Please retry.", null),
-            DbUpdateException =>
-                (StatusCodes.Status409Conflict, "The database rejected the request because it conflicts with existing data.", null),
+            DbUpdateException dbUpdateEx =>
+                (StatusCodes.Status409Conflict, dbUpdateEx.InnerException?.Message ?? dbUpdateEx.Message, null),
             _ =>
                 (StatusCodes.Status500InternalServerError, "Something went wrong!", null)
         };
