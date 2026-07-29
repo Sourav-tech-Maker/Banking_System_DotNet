@@ -80,6 +80,7 @@ public sealed class OutboxEmailDispatcher(
                       AND [EventType] IN
                           (N'EmailVerificationRequested',
                            N'BeneficiaryVerificationRequested',
+                           N'TransferOtpRequested',
                            N'RegistrationWelcomeRequested',
                            N'NewDeviceLoginDetected',
                            N'KycStatusUpdated',

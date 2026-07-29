@@ -5,8 +5,8 @@ appsettings.Local.json
 appsettings.Development.json
 
 # .NET Build Output & IDE
-bin/
-obj/
+**/bin/
+**/obj/
 .vs/
 *.user
 *.suo
