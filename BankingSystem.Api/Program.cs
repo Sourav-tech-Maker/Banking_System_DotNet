@@ -256,11 +256,12 @@ else
     app.Logger.LogWarning(
         "Email delivery is disabled. Registration emails will remain pending in Integration.OutboxMessages.");
 }
-if (app.Environment.IsDevelopment())
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Banking System API v1");
+    c.RoutePrefix = string.Empty;
+});
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 if (!app.Environment.IsDevelopment())
 {
