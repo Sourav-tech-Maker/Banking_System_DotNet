@@ -44,7 +44,7 @@ public sealed class AuthService(
         try
         {
             await using var transaction = await context.Database.BeginTransactionAsync(
-                IsolationLevel.Serializable,
+                IsolationLevel.ReadCommitted,
                 cancellationToken);
 
             var userExists = await context.Users.AnyAsync(
@@ -175,7 +175,7 @@ public sealed class AuthService(
         var now = timeProvider.GetUtcNow().UtcDateTime;
 
         await using var transaction = await context.Database.BeginTransactionAsync(
-            IsolationLevel.Serializable,
+            IsolationLevel.ReadCommitted,
             cancellationToken);
 
         var challenges = await context.VerificationChallenges
@@ -248,7 +248,7 @@ public sealed class AuthService(
         var now = timeProvider.GetUtcNow().UtcDateTime;
 
         await using var transaction = await context.Database.BeginTransactionAsync(
-            IsolationLevel.Serializable,
+            IsolationLevel.ReadCommitted,
             cancellationToken);
 
         var users = await context.Users
@@ -343,7 +343,7 @@ public sealed class AuthService(
         var now = timeProvider.GetUtcNow().UtcDateTime;
 
         await using var transaction = await context.Database.BeginTransactionAsync(
-            IsolationLevel.Serializable,
+            IsolationLevel.ReadCommitted,
             cancellationToken);
 
         var users = await context.Users
@@ -492,7 +492,7 @@ public sealed class AuthService(
         var now = timeProvider.GetUtcNow().UtcDateTime;
 
         await using var transaction = await context.Database.BeginTransactionAsync(
-            IsolationLevel.Serializable,
+            IsolationLevel.ReadCommitted,
             cancellationToken);
 
         var sessions = await context.RefreshSessions
@@ -568,7 +568,7 @@ public sealed class AuthService(
         var now = timeProvider.GetUtcNow().UtcDateTime;
 
         await using var transaction = await context.Database.BeginTransactionAsync(
-            IsolationLevel.Serializable,
+            IsolationLevel.ReadCommitted,
             cancellationToken);
 
         var sessions = await context.RefreshSessions
