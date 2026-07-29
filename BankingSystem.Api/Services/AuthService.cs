@@ -346,14 +346,8 @@ public sealed class AuthService(
             IsolationLevel.ReadCommitted,
             cancellationToken);
 
-        var users = await context.Users
-            .FromSqlInterpolated($$"""
-                SELECT *
-                FROM [Auth].[Users] WITH (UPDLOCK, HOLDLOCK)
-                WHERE [NormalizedEmail] = {{normalizedEmail}}
-                """)
-            .ToListAsync(cancellationToken);
-        var user = users.SingleOrDefault();
+        var user = await context.Users
+            .SingleOrDefaultAsync(u => u.NormalizedEmail == normalizedEmail, cancellationToken);
 
         if (user is null)
         {
