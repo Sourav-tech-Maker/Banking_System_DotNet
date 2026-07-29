@@ -50,19 +50,37 @@ public sealed class SmtpEmailSender(
             socketSecurity,
             cancellationToken);
 
+        var password = options.UsesGmail
+            ? options.Password.Replace(" ", string.Empty, StringComparison.Ordinal)
+            : options.Password;
+
         if (options.OAuth2.IsConfigured)
         {
-            var accessToken = await GetOAuthAccessTokenAsync(options, cancellationToken);
-            await smtpClient.AuthenticateAsync(
-                new SaslMechanismOAuth2(options.Username, accessToken),
-                cancellationToken);
+            try
+            {
+                var accessToken = await GetOAuthAccessTokenAsync(options, cancellationToken);
+                await smtpClient.AuthenticateAsync(
+                    new SaslMechanismOAuth2(options.Username, accessToken),
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "OAuth2 authentication failed for Gmail. Falling back to App Password authentication.");
+                if (!string.IsNullOrWhiteSpace(password))
+                {
+                    await smtpClient.AuthenticateAsync(
+                        options.Username,
+                        password,
+                        cancellationToken);
+                }
+                else
+                {
+                    throw;
+                }
+            }
         }
         else
         {
-            // Google displays app passwords in groups. Accept pasted values with spaces.
-            var password = options.UsesGmail
-                ? options.Password.Replace(" ", string.Empty, StringComparison.Ordinal)
-                : options.Password;
             await smtpClient.AuthenticateAsync(
                 options.Username,
                 password,
