@@ -1,0 +1,6 @@
+{
+  "outputDirectory": "dist/Frontend_Angular/browser",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
