@@ -20,6 +20,12 @@ public sealed class SmtpEmailSender(
             throw new InvalidOperationException("Email delivery is disabled.");
         }
 
+        if (options.UsesBrevoApi)
+        {
+            await SendViaBrevoApiAsync(options, message, cancellationToken);
+            return;
+        }
+
         var password = options.UsesGmail
             ? options.Password?.Replace(" ", string.Empty, StringComparison.Ordinal)
             : options.Password;
@@ -184,5 +190,38 @@ public sealed class SmtpEmailSender(
         }
 
         return accessTokenElement.GetString()!;
+    }
+
+    private async Task SendViaBrevoApiAsync(EmailOptions options, EmailMessage message, CancellationToken cancellationToken)
+    {
+        var client = httpClientFactory.CreateClient(nameof(SmtpEmailSender));
+        client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+
+        var fromEmail = string.IsNullOrWhiteSpace(options.FromEmail) ? "soravv.tech@gmail.com" : options.FromEmail;
+        var fromName = string.IsNullOrWhiteSpace(options.FromName) ? "YONO App" : options.FromName;
+
+        var payload = new
+        {
+            sender = new { name = fromName, email = fromEmail },
+            to = new[] { new { email = message.To } },
+            subject = message.Subject,
+            htmlContent = message.HtmlBody ?? $"<p>{message.TextBody}</p>",
+            textContent = message.TextBody
+        };
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.brevo.com/v3/smtp/email");
+        request.Headers.Add("api-key", options.ApiKey);
+        request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+        request.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+
+        var response = await client.SendAsync(request, cancellationToken);
+        var responseContent = await response.ContentReadAsStringAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException($"Brevo HTTP API delivery failed ({response.StatusCode}): {responseContent}");
+        }
+
+        logger.LogInformation("Sent email '{Subject}' to '{Recipient}' via Brevo HTTP API.", message.Subject, message.To);
     }
 }

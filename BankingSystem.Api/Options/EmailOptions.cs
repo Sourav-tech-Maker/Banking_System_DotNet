@@ -13,12 +13,15 @@ public sealed class EmailOptions
     public string Username { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
     public bool AllowSenderAlias { get; set; }
+    public string ApiKey { get; set; } = string.Empty;
     public int TimeoutSeconds { get; set; } = 30;
     public int PollingIntervalSeconds { get; set; } = 5;
     public OAuth2EmailOptions OAuth2 { get; set; } = new();
 
     public bool UsesGmail =>
         Host.Equals("smtp.gmail.com", StringComparison.OrdinalIgnoreCase);
+
+    public bool UsesBrevoApi => !string.IsNullOrWhiteSpace(ApiKey);
 }
 
 public sealed class OAuth2EmailOptions
