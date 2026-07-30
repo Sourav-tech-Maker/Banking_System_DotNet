@@ -215,7 +215,7 @@ public sealed class SmtpEmailSender(
         request.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
 
         var response = await client.SendAsync(request, cancellationToken);
-        var responseContent = await response.ContentReadAsStringAsync(cancellationToken);
+        var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
