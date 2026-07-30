@@ -85,7 +85,7 @@ import { SystemConsoleComponent } from './system-console/system-console.componen
     SystemConsoleComponent
   ],
   template: `
-    <div [class.dark]="isDarkMode()" class="min-h-screen bg-slate-50 text-slate-900 transition-colors duration-300 dark:bg-slate-900 dark:text-slate-100 md:flex">
+    <div [class.dark]="isDarkMode()" class="min-h-screen md:h-screen md:overflow-hidden bg-slate-50 text-slate-900 transition-colors duration-300 dark:bg-slate-900 dark:text-slate-100 md:flex">
       <button
         *ngIf="mobileSidebarOpen()"
         type="button"
@@ -176,7 +176,7 @@ import { SystemConsoleComponent } from './system-console/system-console.componen
       </aside>
 
       <!-- MAIN PAGE AREA -->
-      <div class="flex min-h-screen min-w-0 flex-1 flex-col">
+      <div class="flex min-h-screen md:h-screen md:overflow-y-auto min-w-0 flex-1 flex-col">
         <!-- NAVBAR -->
         <header class="sticky top-0 z-20 flex min-h-16 items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 sm:px-6">
           <div class="flex min-w-0 items-center gap-3 sm:gap-4">
