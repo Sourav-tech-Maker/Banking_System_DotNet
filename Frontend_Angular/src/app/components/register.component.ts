@@ -9,7 +9,25 @@ import { ApiService } from '../services/api.service';
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink],
   template: `
-    <main class="flex min-h-screen w-full bg-slate-950 font-sans text-slate-900 overflow-hidden">
+    <main class="flex flex-col lg:flex-row min-h-screen w-full bg-slate-950 font-sans text-slate-900">
+      <!-- Sticky Mobile Top Header (Always Fixed at Top of Phone Screen) -->
+      <header class="lg:hidden sticky top-0 z-50 w-full bg-slate-950 px-4 py-3 border-b border-slate-800 text-white shadow-xl">
+        <div class="max-w-xl mx-auto flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 bg-gradient-to-tr from-pink-600 via-fuchsia-500 to-violet-600 rounded-xl flex items-center justify-center font-black text-lg text-white shadow-lg shadow-indigo-500/30">
+              Y
+            </div>
+            <div>
+              <span class="block text-lg font-black tracking-widest text-white leading-none">YONO</span>
+              <span class="block text-[8px] tracking-[0.22em] text-slate-400 font-bold uppercase mt-0.5">DIGITAL BANKING SUITE</span>
+            </div>
+          </div>
+          <a routerLink="/login" class="px-3.5 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition shadow">
+            Sign in
+          </a>
+        </div>
+      </header>
+
       <!-- Left Hero Panel (Hidden on Mobile) -->
       <section class="hidden lg:flex w-1/2 flex-col justify-between p-12 relative overflow-hidden text-white bg-slate-950">
         <div class="absolute inset-0 z-0">
@@ -63,32 +81,10 @@ import { ApiService } from '../services/api.service';
       </section>
 
       <!-- Right Registration Form Panel -->
-      <section class="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-10 md:p-12 bg-white overflow-y-auto max-h-screen">
-        <div class="w-full max-w-xl space-y-6">
-          <!-- Top Mobile Header (Shows App Name, Logo, Title & Sign in link on Mobile) -->
-          <div class="lg:hidden w-full bg-slate-950 p-4 sm:p-5 rounded-2xl text-white shadow-xl mb-4 border border-slate-800">
-            <div class="flex items-center justify-between gap-3 pb-3.5 border-b border-slate-800">
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-gradient-to-tr from-pink-600 via-fuchsia-500 to-violet-600 rounded-xl flex items-center justify-center font-black text-xl text-white shadow-lg shadow-indigo-500/30">
-                  Y
-                </div>
-                <div>
-                  <span class="block text-xl font-extrabold tracking-widest text-white leading-none">YONO</span>
-                  <span class="block text-[9px] tracking-[0.22em] text-slate-400 font-bold uppercase mt-0.5">DIGITAL BANKING SUITE</span>
-                </div>
-              </div>
-              <a routerLink="/login" class="px-3.5 py-1.5 rounded-lg bg-indigo-600/30 text-indigo-300 text-xs font-bold hover:bg-indigo-600/50 transition border border-indigo-500/30">
-                Sign in
-              </a>
-            </div>
-            <div class="pt-3">
-              <h2 class="text-2xl font-extrabold text-white tracking-tight">Create your account</h2>
-              <p class="text-xs text-slate-400 mt-1">Already have an account? <a routerLink="/login" class="text-indigo-400 font-semibold underline">Sign in</a></p>
-            </div>
-          </div>
-
-          <div class="hidden lg:block">
-            <h2 class="text-2xl font-extrabold text-slate-900 tracking-tight">Create your account</h2>
+      <section class="w-full lg:w-1/2 flex flex-col items-center justify-start lg:justify-center p-4 sm:p-8 md:p-12 bg-white min-h-screen lg:max-h-screen overflow-y-auto">
+        <div class="w-full max-w-xl space-y-6 pt-2 sm:pt-0">
+          <div>
+            <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Create your account</h2>
             <p class="mt-1 text-sm text-slate-500">
               Already have an account?
               <a routerLink="/login" class="font-medium text-indigo-600 hover:text-indigo-500 hover:underline">
