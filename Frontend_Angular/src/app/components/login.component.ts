@@ -65,6 +65,19 @@ import { ApiService } from '../services/api.service';
       <!-- Right Form Panel -->
       <section class="w-full lg:w-1/2 flex items-center justify-center p-8 sm:p-12 md:p-16 bg-white overflow-y-auto max-h-screen">
         <div class="w-full max-w-md space-y-8">
+          <!-- Mobile Brand Header (Visible only on mobile devices) -->
+          <div class="lg:hidden flex items-center justify-between p-3.5 mb-2 rounded-xl bg-slate-950 text-white shadow-md">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 bg-gradient-to-tr from-pink-600 via-fuchsia-500 to-violet-600 rounded-lg flex items-center justify-center font-black text-lg text-white shadow">
+                Y
+              </div>
+              <div>
+                <span class="block text-lg font-black tracking-widest text-white leading-none">YONO</span>
+                <span class="block text-[8px] tracking-[0.2em] text-slate-400 font-bold uppercase">DIGITAL BANKING SUITE</span>
+              </div>
+            </div>
+          </div>
+
           <div>
             <h2 class="text-3xl font-extrabold text-slate-900 tracking-tight leading-none">
               Welcome<span class="bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-300 bg-clip-text text-transparent transition-transform duration-300 hover:scale-[1.2] cursor-default origin-left">Back!</span>
@@ -237,6 +250,24 @@ import { ApiService } from '../services/api.service';
               </a>
             </div>
           </form>
+
+          <!-- Mobile Trust & Copyright Badge (Visible only on mobile devices) -->
+          <div class="lg:hidden mt-6 pt-6 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-3">
+            <div class="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-3.5">
+              <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <div>
+                <h4 class="text-xs font-bold text-slate-900 dark:text-white leading-snug">Your trust is our priority.</h4>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400">We never share your data with third parties.</p>
+              </div>
+            </div>
+            <div class="text-center text-xs text-slate-400 py-1">
+              &copy; {{ currentYear }} YONO Bank. All rights reserved.
+            </div>
+          </div>
         </div>
       </section>
     </main>
